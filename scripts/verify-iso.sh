@@ -53,12 +53,33 @@ BOOT_CODE_BYTES="$(dd if="$ISO" bs=1 count=440 status=none 2>/dev/null | tr -d '
 
 echo "OK: GPT + protective MBR, no APM and no BIOS boot code."
 
-# 2) El Torito must have exactly the UEFI entry, using the appended ESP.
+# 2) El Torito must have exactly one entry, it must be UEFI, and it must use
+# the appended ESP. xorriso 1.5.6 reports an image outside the ISO9660 tree
+# as "El Torito img blks : N  <blocks>"; older/newer versions may print the
+# --interval:appended_partition_2 pseudo-path. Accept both for that entry.
 BOOT_REPORT="$(xorriso -indev "$ISO" -report_el_torito plain 2>/dev/null || true)"
-printf '%s\n' "$BOOT_REPORT" | grep -q 'UEFI' \
-    || fail "no UEFI El Torito boot entry in the ISO"
-printf '%s\n' "$BOOT_REPORT" | grep -qE 'appended_partition_2|/boot/grub/efi.img' \
-    || fail "the UEFI El Torito entry does not use the appended ESP"
+BOOT_IMG_COUNT="$(printf '%s\n' "$BOOT_REPORT" | grep -c '^El Torito boot img :' || true)"
+[ "$BOOT_IMG_COUNT" -eq 1 ] \
+    || fail "expected exactly one El Torito boot image (got ${BOOT_IMG_COUNT})"
+UEFI_ENTRY="$(printf '%s\n' "$BOOT_REPORT" \
+    | sed -n 's/^El Torito boot img : *\([0-9][0-9]*\)  *UEFI  y .*/\1/p' | head -n 1)"
+[ -n "$UEFI_ENTRY" ] || fail "no UEFI El Torito boot entry in the ISO"
+UEFI_TORITO_LINE="$(printf '%s\n' "$BOOT_REPORT" \
+    | grep -E "^El Torito (img blks|blks|img path) *: *${UEFI_ENTRY}  " || true)"
+if [ -n "$UEFI_TORITO_LINE" ]; then
+    # A path to an ISO9660 file would be resolved as a path here; only the
+    # appended-partition pseudo-path or a block-range (outside the ISO tree)
+    # is acceptable.
+    printf '%s\n' "$UEFI_TORITO_LINE" \
+        | grep -qE '^(El Torito (img blks|blks) *: *[0-9]+  [0-9]+$|El Torito img path *: *[0-9]+  .*appended_partition_2)' \
+        || fail "the UEFI El Torito entry does not use the appended ESP"
+else
+    # No path line: xorriso could not resolve the image in the ISO tree and
+    # reports LBA 0xffffffff, which is what an appended ESP looks like.
+    printf '%s\n' "$BOOT_REPORT" \
+        | grep -qE "^El Torito boot img : *${UEFI_ENTRY}  *UEFI .*4294967295$" \
+        || fail "the UEFI El Torito entry does not use the appended ESP"
+fi
 if printf '%s\n' "$BOOT_REPORT" | grep -qiE '\bBIOS\b|PC-BIOS'; then
     fail "a legacy BIOS El Torito entry is still present"
 fi

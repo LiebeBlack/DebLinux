@@ -133,13 +133,44 @@ if [ ! -f "$FINAL_ISO" ]; then
     exit 1
 fi
 
-# The UEFI El Torito entry must exist and must use the appended ESP (xorriso
-# may print the interval path or the source file, so accept both spellings).
+# The image must have exactly one El Torito entry and it must be UEFI.
+# xorriso 1.5.6 reports an entry that lives outside the ISO9660 tree (i.e. in
+# the appended ESP) as "El Torito img blks : N  <blocks>" instead of a path;
+# other versions may print the --interval:appended_partition_2 pseudo-path.
+# Accept both for the UEFI entry only, and reject a path to the ISO9660 copy.
 TORITO_REPORT="$(xorriso -indev "$FINAL_ISO" -report_el_torito plain 2>/dev/null || true)"
-printf '%s\n' "$TORITO_REPORT" | grep -q 'UEFI' \
-    || { echo "ERROR: no UEFI El Torito boot entry in the final ISO."; exit 1; }
-printf '%s\n' "$TORITO_REPORT" | grep -qE 'appended_partition_2|/boot/grub/efi.img' \
-    || { echo "ERROR: the UEFI El Torito entry does not use the appended ESP."; exit 1; }
+BOOT_IMG_COUNT="$(printf '%s\n' "$TORITO_REPORT" | grep -c '^El Torito boot img :' || true)"
+if [ "$BOOT_IMG_COUNT" -ne 1 ]; then
+    echo "ERROR: expected exactly one El Torito boot image (got ${BOOT_IMG_COUNT})."
+    printf '%s\n' "$TORITO_REPORT"
+    exit 1
+fi
+UEFI_ENTRY="$(printf '%s\n' "$TORITO_REPORT" \
+    | sed -n 's/^El Torito boot img : *\([0-9][0-9]*\)  *UEFI  y .*/\1/p' | head -n 1)"
+if [ -z "$UEFI_ENTRY" ]; then
+    echo "ERROR: no UEFI El Torito boot entry in the final ISO."
+    printf '%s\n' "$TORITO_REPORT"
+    exit 1
+fi
+UEFI_TORITO_LINE="$(printf '%s\n' "$TORITO_REPORT" \
+    | grep -E "^El Torito (img blks|blks|img path) *: *${UEFI_ENTRY}  " || true)"
+if [ -n "$UEFI_TORITO_LINE" ]; then
+    # A path to an ISO9660 file would be resolved as a path here; only the
+    # appended-partition pseudo-path or a block-range (outside the ISO tree)
+    # is acceptable.
+    printf '%s\n' "$UEFI_TORITO_LINE" \
+        | grep -qE '^(El Torito (img blks|blks) *: *[0-9]+  [0-9]+$|El Torito img path *: *[0-9]+  .*appended_partition_2)' \
+        || { echo "ERROR: the UEFI El Torito entry does not use the appended ESP."; \
+             printf '%s\n' "$TORITO_REPORT"; exit 1; }
+else
+    # xorriso could not resolve the image inside the ISO tree (it prints no
+    # path line and the boot-img LBA is 0xffffffff), which is expected for an
+    # appended partition. Reject any other unresolved UEFI entry.
+    printf '%s\n' "$TORITO_REPORT" \
+        | grep -qE "^El Torito boot img : *${UEFI_ENTRY}  *UEFI .*4294967295$" \
+        || { echo "ERROR: the UEFI El Torito entry does not use the appended ESP."; \
+             printf '%s\n' "$TORITO_REPORT"; exit 1; }
+fi
 
 # GPT header at LBA 1.
 GPT_SIG="$( { dd if="$FINAL_ISO" bs=512 skip=1 count=1 status=none 2>/dev/null | head -c 8; } || true)"
