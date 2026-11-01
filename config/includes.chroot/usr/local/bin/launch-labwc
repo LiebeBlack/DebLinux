@@ -6,7 +6,8 @@ set -e
 
 # Ensure XDG_RUNTIME_DIR exists with correct permissions (0700)
 if [ -z "${XDG_RUNTIME_DIR}" ]; then
-    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    export XDG_RUNTIME_DIR
 fi
 if [ ! -d "${XDG_RUNTIME_DIR}" ]; then
     mkdir -p "${XDG_RUNTIME_DIR}"
@@ -19,8 +20,8 @@ export XDG_SESSION_DESKTOP=labwc
 export XDG_SESSION_TYPE=wayland
 
 # Toolkit Wayland Backends
-export GDK_BACKEND=wayland,x11,*
-export QT_QPA_PLATFORM=wayland;xcb
+export GDK_BACKEND="wayland,x11,*"
+export QT_QPA_PLATFORM="wayland;xcb"
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export SDL_VIDEODRIVER=wayland
 export CLUTTER_BACKEND=wayland

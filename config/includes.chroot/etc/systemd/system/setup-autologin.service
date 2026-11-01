@@ -6,7 +6,7 @@ After=systemd-user-sessions.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'TARGET_USER=$(id -nu 1000 2>/dev/null || echo live); if [ -f /etc/systemd/system/getty@tty1.service.d/autologin.conf ]; then sed -i "s/--autologin [^ ]*/--autologin $TARGET_USER/" /etc/systemd/system/getty@tty1.service.d/autologin.conf; fi'
+ExecStart=/bin/sh -c 'TARGET_USER=$$(id -nu 1000 2>/dev/null || echo live); if [ -f /etc/systemd/system/getty@tty1.service.d/autologin.conf ]; then sed -i "s/--autologin [^ ]*/--autologin $$TARGET_USER/" /etc/systemd/system/getty@tty1.service.d/autologin.conf; fi'
 RemainAfterExit=yes
 
 [Install]

@@ -112,13 +112,13 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 Al flashear la ISO a una memoria USB (usando `dd` o `ventoy`):
 
 1. Conecta la memoria USB a la Lenovo 300e y enciende el equipo presionando `F12` para elegir el dispositivo de arranque.
-2. Si el kernel requiere enrolamiento de clave o arranca **MokManager** (`mmx64.efi`):
-   * Selecciona **"Enroll MOK"** o **"Enroll key from disk"**.
+2. **Antes del primer arranque** hay que enrolar la clave MOK, porque el kernel va firmado con ella y el firmware aún no la conoce:
+   * Entra en el menú de arranque del firmware y usa la opción **"Boot from file"** / **"EFI Shell"** para ejecutar `EFI/boot/mmx64.efi` de la USB (la ISO trae `MOK.der`, `MOK.crt` y `mmx64.efi` en la raíz y en `/EFI/boot`).
+   * En MokManager selecciona **"Enroll key from disk"**.
    * Navega a la partición de la USB y selecciona el archivo `MOK.der` o `MOK.crt`.
    * Selecciona **"View Key"** para confirmar los datos (`Debian Secure Boot MOK`).
-   * Selecciona **"Continue"** -> **"Yes"** -> Confirma con la contraseña (si estableciste una o confirma la inscripción).
-   * Selecciona **"Reboot"**.
-3. El equipo arrancará normalmente en Debian 13 bajo Secure Boot activado al 100%.
+   * Selecciona **"Continue"** -> **"Yes"** -> confirma la inscripción y reinicia con **"Reboot"**.
+3. El equipo arrancará normalmente en Debian 13 bajo Secure Boot activado al 100%; el shim de Debian valida GRUB y GRUB valida el kernel con la clave MOK ya enrolada.
 
 ---
 
@@ -129,14 +129,15 @@ Si deseas compilar la imagen localmente en Debian/Ubuntu:
 ```bash
 # 1. Instalar herramientas
 sudo apt-get update
-sudo apt-get install -y debian-archive-keyring \
+sudo apt-get install -y shim-signed \
   isolinux syslinux-utils sbsigntool openssl xorriso dosfstools mtools
 
 # 1b. Ubuntu y Debian 12 traen versiones antiguas de live-build (3.0~a57 / 20230502)
 # que no reconocen opciones de Debian 13 como --updates. Instala los paquetes de trixie:
 curl -fsSLO https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb
 curl -fsSLO https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
-sudo apt-get install -y ./debootstrap_1.0.141_all.deb ./live-build_20250505+deb13u1_all.deb
+curl -fsSLO https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+sudo apt-get install -y ./debian-archive-keyring_2025.1_all.deb ./debootstrap_1.0.141_all.deb ./live-build_20250505+deb13u1_all.deb
 
 # 2. Generar claves MOK
 chmod +x scripts/*.sh auto/*

@@ -29,13 +29,14 @@ jobs:
 
       - name: Free Disk Space on Runner
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL || true
+          df -h /
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            debian-archive-keyring \
             isolinux \
             syslinux-utils \
             sbsigntool \
@@ -55,7 +56,9 @@ jobs:
             https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb
           curl -fsSL -o /tmp/debootstrap.deb \
             https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
-          sudo apt-get install -y /tmp/debootstrap.deb /tmp/live-build.deb
+          curl -fsSL -o /tmp/debian-archive-keyring.deb \
+            https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+          sudo apt-get install -y /tmp/debian-archive-keyring.deb /tmp/debootstrap.deb /tmp/live-build.deb
 
           echo "live-build version on PATH:"
           lb --version
@@ -83,9 +86,19 @@ jobs:
 
       - name: Execute Live-Build Compilation
         run: |
+          set -o pipefail
           echo "Starting Debian live-build compilation..."
           sudo lb build 2>&1 | tee live-build.log
           echo "Live-build compilation complete."
+
+      - name: Upload Live-Build Log
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: live-build-log
+          path: live-build.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Sign Kernel with MOK and Repack Bootable ISO
         run: |

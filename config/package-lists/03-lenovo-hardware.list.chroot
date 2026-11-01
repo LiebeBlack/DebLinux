@@ -1,6 +1,6 @@
 # Hardware Firmware & Drivers for Lenovo 300e 2nd Gen (Intel Celeron N4120)
 firmware-linux
-firmware-misc-non-free
+firmware-misc-nonfree
 firmware-sof-signed
 firmware-intel-sound
 alsa-ucm-conf

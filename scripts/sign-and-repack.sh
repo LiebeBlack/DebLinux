@@ -92,15 +92,28 @@ if [ -n "$FIRST_KERNEL" ]; then
 fi
 
 # Inject MOK certificates to ISO root and /live so user can enroll them from UEFI MokManager
-XORRISO_ARGS+=("-add" "$MOK_CRT" "/MOK.crt")
-XORRISO_ARGS+=("-add" "$MOK_DER" "/MOK.der")
-XORRISO_ARGS+=("-add" "$MOK_DER" "/live/MOK.der")
+XORRISO_ARGS+=("-update" "$MOK_CRT" "/MOK.crt")
+XORRISO_ARGS+=("-update" "$MOK_DER" "/MOK.der")
+XORRISO_ARGS+=("-update" "$MOK_DER" "/live/MOK.der")
 
-# Inject MokManager (mmx64.efi) into EFI boot directory if available on host
-if [ -f /usr/lib/shim/mmx64.efi.signed ]; then
-    echo "Injecting signed MokManager (mmx64.efi) into EFI boot partition..."
-    XORRISO_ARGS+=("-add" "/usr/lib/shim/mmx64.efi.signed" "/EFI/BOOT/mmx64.efi")
+# Inject MokManager (mmx64.efi) so the MOK key can be enrolled at first boot.
+# Debian ships mmx64.efi.signed, Ubuntu ships mmx64.efi; both are Microsoft signed.
+MMX_SRC=""
+for CANDIDATE in /usr/lib/shim/mmx64.efi.signed /usr/lib/shim/mmx64.efi; do
+    if [ -f "$CANDIDATE" ]; then
+        MMX_SRC="$CANDIDATE"
+        break
+    fi
+done
+
+if [ -z "$MMX_SRC" ]; then
+    echo "ERROR: MokManager (mmx64.efi) not found. Install 'shim-signed' on the build host."
+    exit 1
 fi
+
+# live-build creates the EFI directory as /EFI/boot (lowercase) on the ISO
+echo "Injecting MokManager (${MMX_SRC}) as /EFI/boot/mmx64.efi..."
+XORRISO_ARGS+=("-update" "$MMX_SRC" "/EFI/boot/mmx64.efi")
 
 echo "Executing xorriso to generate final signed hybrid ISO..."
 xorriso "${XORRISO_ARGS[@]}"
@@ -110,6 +123,15 @@ if [ ! -f "$FINAL_ISO" ]; then
     echo "ERROR: Failed to create $FINAL_ISO"
     exit 1
 fi
+
+ISO_FILES="$(xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null || true)"
+for REQUIRED in /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
+    if ! printf '%s\n' "$ISO_FILES" | grep -qiF "$REQUIRED"; then
+        echo "ERROR: ${REQUIRED} missing from the final ISO (Secure Boot chain incomplete)."
+        exit 1
+    fi
+done
+echo "Secure Boot chain present: shim (bootx64.efi) + MokManager (mmx64.efi)."
 
 echo "Final repacked ISO size: $(du -h "$FINAL_ISO" | cut -f1)"
 echo "Generating SHA256 checksum..."

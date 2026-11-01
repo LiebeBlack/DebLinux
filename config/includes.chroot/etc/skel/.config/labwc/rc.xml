@@ -7,11 +7,11 @@
 
   <!-- Touchpad and Keyboard configuration for Lenovo 300e -->
   <libinput>
-    <device type="touchpad">
+    <device category="touchpad">
       <naturalScroll>yes</naturalScroll>
       <tap>yes</tap>
       <tapAndDrag>yes</tapAndDrag>
-      <accelSpeed>0.2</accelSpeed>
+      <pointerSpeed>0.2</pointerSpeed>
     </device>
   </libinput>
 
@@ -76,12 +76,12 @@
       <action name="Execute" command="brightnessctl set 5%-" />
     </keybind>
 
-    <!-- Screenshot Shortcuts -->
+    <!-- Screenshot Shortcuts (labwc execs without a shell, so wrap in sh -c) -->
     <keybind key="Print">
-      <action name="Execute" command="grim ~/screenshot-$(date +%s).png" />
+      <action name="Execute" command="sh -c 'grim ~/screenshot-$(date +%s).png'" />
     </keybind>
     <keybind key="S-Print">
-      <action name="Execute" command="slurp | grim -g - ~/screenshot-$(date +%s).png" />
+      <action name="Execute" command="sh -c 'slurp | grim -g - ~/screenshot-$(date +%s).png'" />
     </keybind>
   </keyboard>
 
