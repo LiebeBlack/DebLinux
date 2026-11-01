@@ -1,0 +1,19 @@
+#!/bin/sh
+# /usr/local/bin/launch-calamares
+# Elevated launcher for Calamares installer under Wayland / Labwc
+
+set -e
+
+# Grant root access to local XWayland server if running
+if command -v xhost >/dev/null 2>&1; then
+    xhost +si:localuser:root 2>/dev/null || true
+fi
+
+# Prefer pkexec with polkit rule, fallback to sudo
+if command -v pkexec >/dev/null 2>&1; then
+    exec pkexec calamares "$@"
+elif command -v sudo >/dev/null 2>&1; then
+    exec sudo -E calamares "$@"
+else
+    exec calamares "$@"
+fi
