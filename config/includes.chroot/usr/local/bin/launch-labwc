@@ -4,15 +4,25 @@
 
 set -e
 
-# Ensure XDG_RUNTIME_DIR exists with correct permissions (0700)
-if [ -z "${XDG_RUNTIME_DIR}" ]; then
-    XDG_RUNTIME_DIR="/run/user/$(id -u)"
-    export XDG_RUNTIME_DIR
+# Never start a graphical session as root. wlroots/Labwc as root bypasses the
+# seat handover and can leave DRM/input in a broken state (and creates
+# root-owned files in the session). Only the unprivileged live user may run it.
+if [ "$(id -u)" -eq 0 ]; then
+    echo "ERROR: refusing to start labwc as root; log in as the live user instead." >&2
+    exit 1
 fi
-if [ ! -d "${XDG_RUNTIME_DIR}" ]; then
-    mkdir -p "${XDG_RUNTIME_DIR}"
-    chmod 0700 "${XDG_RUNTIME_DIR}"
+
+# Ensure XDG_RUNTIME_DIR exists with correct permissions (0700).
+# /run/user/<uid> is normally created by logind; when it is absent and the
+# live user cannot create it under /run, fall back to a private /tmp dir
+# instead of aborting the session (set -e would otherwise drop us to TTY).
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+if ! mkdir -p "${RUNTIME_DIR}" 2>/dev/null || [ ! -w "${RUNTIME_DIR}" ]; then
+    RUNTIME_DIR="/tmp/xdg-runtime-$(id -u)"
+    mkdir -p "${RUNTIME_DIR}"
 fi
+chmod 0700 "${RUNTIME_DIR}" 2>/dev/null || true
+export XDG_RUNTIME_DIR="${RUNTIME_DIR}"
 
 # Session & Desktop Identification
 export XDG_CURRENT_DESKTOP=labwc
@@ -35,9 +45,13 @@ export MESA_LOADER_DRIVER_OVERRIDE=iris
 # Enable XWayland support in wlroots/labwc
 export WLR_XWAYLAND=1
 
-# Seat management execution
-if command -v seatd-launch >/dev/null 2>&1; then
-    exec seatd-launch labwc
-else
-    exec labwc
+# Seat management: the system seatd.service runs as root and grants the
+# video group access. seatd-launch needs root or a SUID bit (it is shipped
+# 0755), so invoking it as the live user fails and kills the session.
+# libseat connects to the running seatd daemon directly.
+if ! command -v labwc >/dev/null 2>&1; then
+    echo "ERROR: labwc is not installed; staying in text mode." >&2
+    exit 1
 fi
+
+exec labwc
