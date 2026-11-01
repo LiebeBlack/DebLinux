@@ -129,8 +129,14 @@ Si deseas compilar la imagen localmente en Debian/Ubuntu:
 ```bash
 # 1. Instalar herramientas
 sudo apt-get update
-sudo apt-get install -y live-build debootstrap debian-archive-keyring \
+sudo apt-get install -y debian-archive-keyring \
   isolinux syslinux-utils sbsigntool openssl xorriso dosfstools mtools
+
+# 1b. Ubuntu y Debian 12 traen versiones antiguas de live-build (3.0~a57 / 20230502)
+# que no reconocen opciones de Debian 13 como --updates. Instala los paquetes de trixie:
+curl -fsSLO https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb
+curl -fsSLO https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
+sudo apt-get install -y ./debootstrap_1.0.141_all.deb ./live-build_20250505+deb13u1_all.deb
 
 # 2. Generar claves MOK
 chmod +x scripts/*.sh auto/*

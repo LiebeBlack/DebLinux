@@ -35,8 +35,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            live-build \
-            debootstrap \
             debian-archive-keyring \
             isolinux \
             syslinux-utils \
@@ -48,10 +46,19 @@ jobs:
             grub-efi-amd64-bin \
             grub-pc-bin \
             shim-signed
-          # Guarantee debootstrap has trixie script mapping on Ubuntu runners
-          if [ ! -f /usr/share/debootstrap/scripts/trixie ] && [ -f /usr/share/debootstrap/scripts/sid ]; then
-            sudo ln -sf /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/trixie
-          fi
+
+          # ubuntu-latest only ships live-build 3.0~a57 (2013) and its
+          # matching debootstrap, which predate trixie and reject current
+          # options such as --updates. Install the Debian 13 packages so the
+          # toolchain matches the suite being built.
+          curl -fsSL -o /tmp/live-build.deb \
+            https://deb.debian.org/debian/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb
+          curl -fsSL -o /tmp/debootstrap.deb \
+            https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
+          sudo apt-get install -y /tmp/debootstrap.deb /tmp/live-build.deb
+
+          echo "live-build version on PATH:"
+          lb --version
 
       - name: Ensure Executable Permissions on Project Scripts
         run: |
