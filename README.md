@@ -76,7 +76,8 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 │           └── 0100-user-setup.hook.chroot # Ajustes de permisos y servicios en chroot
 ├── scripts/
 │   ├── generate-mok.sh                 # Generador dinámico de claves MOK OpenSSL
-│   └── sign-and-repack.sh              # Extracción, firma con sbsign y reempaquetado xorriso
+│   ├── sign-and-repack.sh              # Extracción, firma con sbsign y reempaquetado xorriso
+│   └── verify-iso.sh                   # Verificación final de la cadena Secure Boot del ISO
 ├── .gitignore
 └── README.md
 ```
@@ -148,5 +149,7 @@ sudo DEBIAN_VERSION="trixie" lb config
 sudo lb build
 
 # 4. Firmar el kernel y reempaquetar la ISO final
-sudo ./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-signed.iso mok/mok.key mok/mok.crt mok/mok.der
+# (sin sudo: el script solo lee la ISO y escribe los artefactos como tu usuario,
+#  de lo contrario quedan propiedad de root y falla la generación del sha256)
+./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-signed.iso mok/mok.key mok/mok.crt mok/mok.der
 ```

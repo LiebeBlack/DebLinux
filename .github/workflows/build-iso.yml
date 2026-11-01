@@ -110,12 +110,24 @@ jobs:
           echo "Original generated ISO: ${ORIG_ISO}"
           FINAL_ISO="debian-live-lenovo300e-n4120-signed.iso"
           
-          # Execute the kernel extraction, signing, and repacking pipeline
-          sudo ./scripts/sign-and-repack.sh "$ORIG_ISO" "$FINAL_ISO" mok/mok.key mok/mok.crt mok/mok.der
+          # Execute the kernel extraction, signing, and repacking pipeline.
+          # Run as the unprivileged runner user: signing and repacking only need
+          # read access to the ISO. Running it under sudo leaves the output ISO
+          # and checksum owned by root, which makes the checksum step below fail
+          # with "tee: ... Permission denied".
+          ./scripts/sign-and-repack.sh "$ORIG_ISO" "$FINAL_ISO" mok/mok.key mok/mok.crt mok/mok.der
 
-          # Verify final artifacts
+          # Verify final artifacts (ownership must stay with the runner user so
+          # the checksum file can be written and uploaded)
           ls -lh "$FINAL_ISO"
           sha256sum "$FINAL_ISO" | tee "${FINAL_ISO}.sha256"
+
+      - name: Verify Signed Secure Boot ISO
+        run: |
+          chmod +x scripts/verify-iso.sh
+          ./scripts/verify-iso.sh \
+            debian-live-lenovo300e-n4120-signed.iso \
+            mok/mok.crt
 
       - name: Upload Repacked SecureBoot ISO and Checksum
         uses: actions/upload-artifact@v5
