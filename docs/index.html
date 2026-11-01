@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DebLinux — Debian 13 ultraligero con Secure Boot real para Lenovo 300e</title>
+<meta name="description" content="ISO live de Debian 13 (Trixie) con Wayland/Labwc, firmada con MOK y verificada con Secure Boot en QEMU + OVMF. Construida para el Intel Celeron N4120 de la Lenovo 300e.">
+<meta name="theme-color" content="#05060a">
+<meta property="og:title" content="DebLinux — Debian 13 con Secure Boot real">
+<meta property="og:description" content="ISO ultraligera de Debian 13 para Lenovo 300e: Wayland, shim + GRUB firmados y kernel firmado con MOK. Verificada arrancando en QEMU con OVMF Secure Boot.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230b0d14'/%3E%3Cpath d='M9 9h6.5a7 7 0 0 1 0 14H9z' fill='none' stroke='%237c5cff' stroke-width='2.6'/%3E%3C/svg%3E">
+<style>
+  /* ---------- tokens ---------- */
+  :root{
+    --bg:#05060a;
+    --bg-2:#080a11;
+    --panel:rgba(255,255,255,.035);
+    --panel-2:rgba(255,255,255,.06);
+    --line:rgba(255,255,255,.09);
+    --line-strong:rgba(255,255,255,.16);
+    --ink:#f4f5f8;
+    --ink-2:#b9bdcb;
+    --ink-3:#7f8598;
+    --violet:#7c5cff;
+    --cyan:#2dd4ee;
+    --amber:#ffb86b;
+    --green:#4ade80;
+    --radius:22px;
+    --max:1180px;
+    --font:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font);
+    font-size:17px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  /* ---------- aurora background ---------- */
+  .aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .aurora span{
+    position:absolute;display:block;border-radius:50%;
+    filter:blur(90px);opacity:.5;
+    animation:float 26s ease-in-out infinite;
+  }
+  .aurora .a{width:52vw;height:52vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 30% 30%,rgba(124,92,255,.55),transparent 62%)}
+  .aurora .b{width:46vw;height:46vw;right:-14vw;top:-6vw;background:radial-gradient(circle at 60% 40%,rgba(45,212,238,.38),transparent 64%);animation-delay:-8s}
+  .aurora .c{width:40vw;height:40vw;left:24vw;top:52vh;background:radial-gradient(circle at 50% 50%,rgba(255,184,107,.18),transparent 66%);animation-delay:-15s}
+  @keyframes float{
+    0%,100%{transform:translate3d(0,0,0) scale(1)}
+    50%{transform:translate3d(2vw,-3vh,0) scale(1.07)}
+  }
+  .grain{
+    position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.32;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+    mix-blend-mode:overlay;
+  }
+
+  /* ---------- nav ---------- */
+  .progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+    background:linear-gradient(90deg,var(--violet),var(--cyan));box-shadow:0 0 18px rgba(124,92,255,.8)}
+  header.nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    transition:background .35s ease,border-color .35s ease,backdrop-filter .35s ease;
+    border-bottom:1px solid transparent;
+  }
+  header.nav.solid{background:rgba(5,6,10,.72);backdrop-filter:blur(18px) saturate(140%);border-bottom-color:var(--line)}
+  .nav-inner{max-width:var(--max);margin:0 auto;padding:16px 26px;display:flex;align-items:center;gap:24px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:650;letter-spacing:-.02em;font-size:15.5px;color:var(--ink);text-decoration:none}
+  .brand svg{width:30px;height:30px;flex:none}
+  .brand b{font-weight:700}
+  .brand span{color:var(--ink-3);font-weight:450}
+  .nav-links{display:flex;gap:4px;margin-left:auto}
+  .nav-links a{
+    color:var(--ink-2);text-decoration:none;font-size:13.5px;font-weight:500;
+    padding:8px 13px;border-radius:999px;transition:.2s;
+  }
+  .nav-links a:hover,.nav-links a.on{color:var(--ink);background:var(--panel-2)}
+  .nav-cta{
+    display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:#0a0a12;
+    background:linear-gradient(180deg,#fff,#d9dbe6);
+    padding:9px 16px;border-radius:999px;font-size:13.5px;font-weight:650;
+    box-shadow:0 8px 26px -12px rgba(255,255,255,.5);transition:transform .2s,box-shadow .2s;
+  }
+  .nav-cta:hover{transform:translateY(-1px);box-shadow:0 14px 34px -14px rgba(255,255,255,.65)}
+  @media (max-width:860px){.nav-links{display:none}}
+
+  /* ---------- layout ---------- */
+  main{position:relative;z-index:2}
+  section{max-width:var(--max);margin:0 auto;padding:110px 26px}
+  .eyebrow{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;
+    color:var(--ink-3);display:flex;align-items:center;gap:10px;margin:0 0 22px;
+  }
+  .eyebrow::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,var(--violet),transparent)}
+  h2{font-size:clamp(30px,4.2vw,50px);line-height:1.06;letter-spacing:-.035em;margin:0 0 18px;font-weight:640}
+  h2 em{font-style:normal;background:linear-gradient(100deg,var(--violet),var(--cyan) 62%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--ink-2);max-width:62ch;font-size:17.5px;margin:0}
+
+  /* ---------- hero ---------- */
+  .hero{padding-top:150px;padding-bottom:80px;display:grid;grid-template-columns:1.06fr .94fr;gap:56px;align-items:center}
+  .hero h1{
+    font-size:clamp(38px,5.6vw,68px);line-height:.99;letter-spacing:-.045em;font-weight:660;margin:0 0 24px;
+  }
+  .hero h1 .grad{background:linear-gradient(96deg,#fff 6%,#c9c4ff 38%,var(--violet) 62%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{color:var(--ink-2);font-size:18.5px;max-width:52ch;margin:0 0 32px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+  .badge{
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-2);border:1px solid var(--line);background:var(--panel);
+    padding:6px 11px;border-radius:999px;display:inline-flex;align-items:center;gap:7px;
+  }
+  .badge i{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);display:block}
+  .badge.warn i{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-weight:620;font-size:15px;
+    padding:13px 22px;border-radius:14px;transition:transform .18s,box-shadow .25s,background .25s,border-color .25s;
+  }
+  .btn-primary{
+    color:#08080f;background:linear-gradient(180deg,#fff,#dcdde8);
+    box-shadow:0 18px 40px -20px rgba(255,255,255,.7),inset 0 1px 0 #fff;
+  }
+  .btn-primary:hover{transform:translateY(-2px)}
+  .btn-ghost{color:var(--ink);border:1px solid var(--line-strong);background:var(--panel)}
+  .btn-ghost:hover{background:var(--panel-2);border-color:rgba(255,255,255,.28);transform:translateY(-2px)}
+
+  /* terminal card */
+  .term{
+    border-radius:var(--radius);border:1px solid var(--line);background:linear-gradient(180deg,rgba(18,20,30,.92),rgba(8,9,14,.94));
+    box-shadow:0 50px 90px -40px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.02),0 0 90px -50px rgba(124,92,255,.8);
+    overflow:hidden;backdrop-filter:blur(12px);
+  }
+  .term-bar{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.022)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .term-title{margin-left:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);letter-spacing:.05em}
+  .term-body{padding:20px 20px 24px;font-family:var(--mono);font-size:12.6px;line-height:1.9;color:#cfd3e2}
+  .term-body .ln{opacity:0;transform:translateY(4px);animation:linein .5s ease forwards}
+  .term-body .ln:nth-child(1){animation-delay:.15s}
+  .term-body .ln:nth-child(2){animation-delay:.35s}
+  .term-body .ln:nth-child(3){animation-delay:.55s}
+  .term-body .ln:nth-child(4){animation-delay:.75s}
+  .term-body .ln:nth-child(5){animation-delay:.95s}
+  .term-body .ln:nth-child(6){animation-delay:1.15s}
+  .term-body .ln:nth-child(7){animation-delay:1.35s}
+  @keyframes linein{to{opacity:1;transform:none}}
+  .ok{color:var(--green)}
+  .warn{color:var(--amber)}
+  .dim{color:#6f7688}
+  .cy{color:var(--cyan)}
+  .vi{color:#a394ff}
+  .caret{display:inline-block;width:7px;height:14px;background:var(--cyan);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* stat strip */
+  .stats{
+    max-width:var(--max);margin:0 auto;padding:0 26px 40px;display:grid;
+    grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);
+    border-radius:18px;overflow:hidden;
+  }
+  .stat{background:linear-gradient(180deg,rgba(10,12,18,.9),rgba(6,7,11,.9));padding:26px 24px}
+  .stat b{display:block;font-size:30px;letter-spacing:-.03em;font-weight:650;line-height:1.1}
+  .stat span{display:block;color:var(--ink-3);font-size:12.6px;margin-top:6px;font-family:var(--mono);letter-spacing:.03em}
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;padding-top:126px;gap:40px}
+    .stats{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:520px){.stats{grid-template-columns:1fr}}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;gap:18px;margin-top:44px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media (max-width:980px){.g3{grid-template-columns:1fr 1fr}}
+  @media (max-width:680px){.g3,.g2{grid-template-columns:1fr}}
+
+  .card{
+    position:relative;border:1px solid var(--line);border-radius:var(--radius);
+    background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+    padding:26px;overflow:hidden;transition:border-color .3s,transform .3s,background .3s;
+  }
+  .card::after{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(420px 180px at 20% -10%,rgba(124,92,255,.16),transparent 70%);opacity:0;transition:opacity .35s;
+  }
+  .card:hover{border-color:var(--line-strong);transform:translateY(-3px)}
+  .card:hover::after{opacity:1}
+  .card .ico{
+    width:38px;height:38px;border-radius:11px;display:grid;place-items:center;margin-bottom:16px;
+    border:1px solid var(--line-strong);background:linear-gradient(160deg,rgba(124,92,255,.22),rgba(45,212,238,.1));
+  }
+  .card .ico svg{width:18px;height:18px;stroke:#cfc9ff;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .card h3{margin:0 0 8px;font-size:17.5px;letter-spacing:-.015em;font-weight:620}
+  .card p{margin:0;color:var(--ink-2);font-size:14.6px;line-height:1.62}
+  .card .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);display:block;margin-top:16px}
+
+  /* ---------- chain ---------- */
+  .chain{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:46px;position:relative}
+  .node{
+    border:1px solid var(--line);border-radius:18px;padding:22px 20px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
+    position:relative;
+  }
+  .node .n{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+  .node h4{margin:10px 0 6px;font-size:16px;letter-spacing:-.01em;font-weight:620}
+  .node .who{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .node .seal{
+    display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.06em;padding:5px 9px;border-radius:999px;
+    border:1px solid rgba(74,222,128,.35);color:#a7f3c4;background:rgba(74,222,128,.08);
+  }
+  .node .seal.mok{border-color:rgba(255,184,107,.4);color:#ffd7a8;background:rgba(255,184,107,.09)}
+  .node .seal svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+  @media (max-width:900px){.chain{grid-template-columns:1fr 1fr}}
+
+  .note{
+    margin-top:22px;border-left:2px solid var(--amber);background:rgba(255,184,107,.05);
+    padding:16px 20px;border-radius:0 14px 14px 0;color:var(--ink-2);font-size:14.5px;
+  }
+  .note b{color:var(--amber);font-weight:620}
+
+  /* ---------- pipeline ---------- */
+  .pipe{margin-top:48px;display:grid;gap:0}
+  .step{
+    display:grid;grid-template-columns:78px minmax(0,1fr);gap:26px;padding:26px 0;
+    border-top:1px solid var(--line);align-items:start;
+  }
+  .step:last-child{border-bottom:1px solid var(--line)}
+  .step .num{
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.1em;
+    padding-top:4px;
+  }
+  .step h4{margin:0 0 6px;font-size:19px;letter-spacing:-.02em;font-weight:620}
+  .step p{margin:0;color:var(--ink-2);font-size:15px;max-width:72ch}
+  .step code{
+    font-family:var(--mono);font-size:12.6px;color:#cfc9ff;background:rgba(124,92,255,.12);
+    border:1px solid rgba(124,92,255,.22);padding:1.5px 6px;border-radius:6px;
+  }
+  .step:hover .num{color:var(--cyan)}
+
+  /* ---------- specs ---------- */
+  .specs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-top:44px}
+  .spec{background:var(--bg-2);padding:20px 24px;display:flex;flex-direction:column;gap:4px}
+  .spec dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .spec dd{margin:0;font-size:15.4px;letter-spacing:-.01em;color:var(--ink)}
+  @media (max-width:760px){.specs{grid-template-columns:1fr}}
+
+  /* ---------- keys ---------- */
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:40px}
+  .key{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--panel);
+  }
+  .key span{font-size:14.2px;color:var(--ink-2)}
+  .key kbd{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink);background:rgba(255,255,255,.07);
+    border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:7px;padding:4px 8px;white-space:nowrap;
+  }
+  @media (max-width:900px){.keys{grid-template-columns:1fr 1fr}}
+  @media (max-width:560px){.keys{grid-template-columns:1fr}}
+
+  /* ---------- code ---------- */
+  .code{
+    position:relative;margin:22px 0 0;border:1px solid var(--line);border-radius:16px;
+    background:linear-gradient(180deg,rgba(12,14,20,.95),rgba(7,8,12,.98));overflow:hidden;
+  }
+  .code pre{margin:0;padding:20px 22px;overflow-x:auto;max-width:100%;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d7dae8}
+  .code .cm{color:#6f7688}
+  .code .st{color:#a7f3c4}
+  .copy{
+    position:absolute;top:10px;right:10px;border:1px solid var(--line-strong);background:rgba(255,255,255,.05);
+    color:var(--ink-2);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    padding:6px 10px;border-radius:8px;cursor:pointer;transition:.2s;
+  }
+  .copy:hover{background:rgba(255,255,255,.11);color:#fff}
+
+  /* ---------- install steps ---------- */
+  .howto{display:grid;gap:16px;margin-top:44px;counter-reset:s}  .hstep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:start;
+    border:1px solid var(--line);border-radius:18px;padding:24px;background:var(--panel);
+  }
+  .hstep > div{min-width:0}
+  .hstep .b{
+    counter-increment:s;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+    font-family:var(--mono);font-size:13px;color:#0a0a12;font-weight:700;
+    background:linear-gradient(160deg,#fff,#c9c4ff);
+  }
+  .hstep .b::before{content:counter(s)}
+  .hstep h4{margin:0 0 6px;font-size:16.5px;font-weight:620;letter-spacing:-.01em}
+  .hstep p{margin:0;color:var(--ink-2);font-size:14.6px}
+  .hstep .code{margin-top:14px}
+
+  /* ---------- faq ---------- */
+  .faq{margin-top:40px;border-top:1px solid var(--line)}
+  details{border-bottom:1px solid var(--line)}
+  details summary{
+    cursor:pointer;list-style:none;padding:22px 0;display:flex;align-items:center;gap:16px;
+    font-size:16.6px;font-weight:580;letter-spacing:-.01em;
+  }
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{
+    content:"+";margin-left:auto;font-family:var(--mono);font-size:19px;color:var(--ink-3);
+    transition:transform .25s,color .25s;
+  }
+  details[open] summary::after{content:"−";color:var(--cyan)}
+  details p{margin:0 0 24px;color:var(--ink-2);font-size:15px;max-width:80ch}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);margin-top:40px;position:relative;z-index:2}
+  .foot{max-width:var(--max);margin:0 auto;padding:56px 26px 70px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:36px}
+  .foot h5{margin:0 0 14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .foot a{display:block;color:var(--ink-2);text-decoration:none;font-size:14.2px;padding:5px 0;transition:color .2s}
+  .foot a:hover{color:#fff}
+  .foot p{color:var(--ink-3);font-size:13.4px;margin:0;max-width:38ch}
+  .legal{border-top:1px solid var(--line);padding:22px 26px;max-width:var(--max);margin:0 auto;
+    display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;color:var(--ink-3);font-size:12.4px;font-family:var(--mono)}
+  @media (max-width:820px){.foot{grid-template-columns:1fr 1fr}}
+
+  /* ---------- reveal ---------- */
+  .rv{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+
+<div class="aurora" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<div class="grain" aria-hidden="true"></div>
+<div class="progress" id="prog" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#0e1018" stroke="rgba(255,255,255,.12)"/>
+        <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#7c5cff" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="22.5" cy="11" r="1.9" fill="#2dd4ee"/>
+      </svg>
+      <span><b>DebLinux</b> <span>/ Lenovo 300e</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Secciones">
+      <a href="#vision">Visión</a>
+      <a href="#cadena">Secure Boot</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#hardware">Hardware</a>
+      <a href="#instalar">Instalar</a>
+    </nav>
+    <a class="nav-cta" href="https://github.com/LiebeBlack/DebLinux" target="_blank" rel="noopener">
+      Repositorio
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+    </a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div>
+      <p class="eyebrow">Debian 13 Trixie · UEFI Secure Boot · MOK</p>
+      <h1 id="hero-title">Una ISO que arranca <span class="grad">con Secure Boot encendido</span>, sin pedir permiso.</h1>
+      <p class="sub">Debian 13 ultraligero con Wayland y Labwc, reconstruido a medida para la Lenovo 300e y firmado de extremo a extremo: shim de Microsoft, GRUB de Debian y un kernel firmado con tu propia Machine Owner Key.</p>
+      <div class="badges">
+        <span class="badge"><i></i>GPT + UEFI</span>
+        <span class="badge"><i></i>Kernel firmado</span>
+        <span class="badge"><i></i>Boot test en OVMF</span>
+        <span class="badge warn"><i></i>MOK nueva por build</span>
+      </div>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/LiebeBlack/DebLinux" target="_blank" rel="noopener">
+          Ver el repositorio
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#cadena">Cómo se encadena la firma</a>
+      </div>
+    </div>
+
+    <div class="term" aria-label="Registro de verificación de la cadena Secure Boot">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">actions / build-iso.yml</span>
+      </div>
+      <div class="term-body">
+        <div class="ln"><span class="dim">$</span> ./scripts/sign-and-repack.sh live.iso signed.iso</div>
+        <div class="ln"><span class="ok">✓</span> kernel firmado · <span class="dim">sbsign + sbverify</span></div>
+        <div class="ln"><span class="ok">✓</span> efi.img reconstruido · <span class="vi">mmx64.efi</span></div>
+        <div class="ln"><span class="ok">✓</span> El Torito UEFI → <span class="cy">/boot/grub/efi.img</span></div>
+        <div class="ln"><span class="ok">✓</span> GPT híbrido · <span class="dim">LBA 1 = EFI PART</span></div>
+        <div class="ln"><span class="ok">✓</span> boot test · <span class="dim">login:</span> en ttyS0</div>
+        <div class="ln"><span class="dim">$</span> <span class="caret"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats rv">
+    <div class="stat"><b>100%</b><span>Secure Boot activo</span></div>
+    <div class="stat"><b>0</b><span>drivers de terceros</span></div>
+    <div class="stat"><b>zstd</b><span>squashfs comprimido</span></div>
+    <div class="stat"><b>4</b><span>pasos verificados</span></div>
+  </div>
+
+  <!-- ================= VISION ================= -->
+  <section id="vision">
+    <p class="eyebrow rv">Visión</p>
+    <h2 class="rv">Ligero por diseño, <em>verificable por defecto</em>.</h2>
+    <p class="lede rv">Nada de escritorios de 2 GB ni de desactivar el firmware «un momento». Cada pieza está elegida para el Celeron N4120 y cada eslabón de arranque se comprueba automáticamente antes de publicar la ISO.</p>
+
+    <div class="grid g3">
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H4z"/><path d="M9 20h6M12 16v4"/></svg></div>
+        <h3>Wayland sin capas de más</h3>
+        <p>Labwc sobre wlroots, asiento por <b>seatd</b> y arranque directo a TTY1 con <code>exec launch-labwc</code>. Sin display manager, sin GNOME, sin servicios de más.</p>
+        <span class="tag">labwc · waybar · foot · fuzzel</span>
+      </article>
+
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Firma de extremo a extremo</h3>
+        <p>shim firmado por la CA de Microsoft, GRUB firmado por Debian y el kernel firmado con MOK con <code>sbsign</code>. Cada salto valida al siguiente.</p>
+        <span class="tag">shim-signed · grub-efi · sbsigntool</span>
+      </article>
+
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+        <h3>Aceleración Intel real</h3>
+        <p>Media Driver <b>iHD</b>, Mesa Iris y VA-API para la UHD 600 de Gemini Lake. Audio SOF con UCM, firmware Intel y microcódigo al día.</p>
+        <span class="tag">va-api · vulkan · sof</span>
+      </article>
+
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M3 20h18"/><path d="M8 10l2 2 4-4"/></svg></div>
+        <h3>Instalador GPT obligatorio</h3>
+        <p>Calamares exige tabla GPT y partición EFI: la ISO solo trae GRUB UEFI, así que una instalación MBR heredada quedaría sin arranque y se rechaza de entrada.</p>
+        <span class="tag">calamares · partition.conf</span>
+      </article>
+
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="16" r="3"/></svg></div>
+        <h3>Navegador actual, verificado</h3>
+        <p>Firefox Nightly se descarga del canal oficial durante la compilación, se compara su <b>SHA512</b> con el fichero de Mozilla y el build aborta si falta una librería de runtime.</p>
+        <span class="tag">/opt/firefox-nightly · MOZ_ENABLE_WAYLAND</span>
+      </article>
+
+      <article class="card rv">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v6l3 2"/><circle cx="12" cy="12" r="8"/><path d="M4 12h2M18 12h2"/></svg></div>
+        <h3>Construcción reproducible</h3>
+        <p>El bootstrap queda clavado a un snapshot inmutable de Debian, los <code>.deb</code> de la toolchain se verifican por SHA256 y la caché de paquetes sobrevive entre ejecuciones.</p>
+        <span class="tag">snapshot.debian.org · actions/cache</span>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= CADENA ================= -->
+  <section id="cadena">
+    <p class="eyebrow rv">Cadena de confianza</p>
+    <h2 class="rv">Cuatro saltos, <em>tres firmas distintas</em>.</h2>
+    <p class="lede rv">Secure Boot no confía en tu kernel por buena voluntad: exige una cadena de firmas que el firmware pueda verificar. Esta ISO la construye explícitamente, eslabón por eslabón.</p>
+
+    <div class="chain">
+      <div class="node rv">
+        <div class="n">01 · Firmware</div>
+        <h4>UEFI del equipo</h4>
+        <div class="who">Lenovo 300e · Secure Boot ON</div>
+        <span class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>base de confianza</span>
+      </div>
+      <div class="node rv">
+        <div class="n">02 · Primera etapa</div>
+        <h4>shim</h4>
+        <div class="who"><code>EFI/BOOT/BOOTX64.EFI</code></div>
+        <span class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>CA de Microsoft</span>
+      </div>
+      <div class="node rv">
+        <div class="n">03 · Cargador</div>
+        <h4>GRUB EFI</h4>
+        <div class="who"><code>grub-efi-amd64-signed</code></div>
+        <span class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>firmado por Debian</span>
+      </div>
+      <div class="node rv">
+        <div class="n">04 · Kernel</div>
+        <h4>vmlinuz + MOK</h4>
+        <div class="who"><code>sbsign --key mok.key</code></div>
+        <span class="seal mok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="8"/></svg>requiere enrolar</span>
+      </div>
+    </div>
+
+    <div class="note rv">
+      <b>La MOK no viene de serie.</b> Se genera nueva en cada compilación y no se guarda en el repositorio, así que la primera vez hay que enrolarla desde MokManager — que va incluido dentro de <code>efi.img</code> y también en <code>/EFI/boot/mmx64.efi</code>, porque shim solo lo busca en el mismo sistema de ficheros desde el que se cargó.
+    </div>
+  </section>
+
+  <!-- ================= PIPELINE ================= -->
+  <section id="pipeline">
+    <p class="eyebrow rv">Pipeline</p>
+    <h2 class="rv">De <em>live-build</em> a una ISO que arranca.</h2>
+    <p class="lede rv">Seis etapas en GitHub Actions sobre Ubuntu, cada una con su comprobación. Si algo no cuadra, el job falla antes de publicar artefactos.</p>
+
+    <div class="pipe">
+      <div class="step rv"><div class="num">01</div><div>
+        <h4>Compilación con live-build</h4>
+        <p>Debian 13 (trixie) con squashfs <code>zstd</code>, snapshot inmutable en el bootstrap y mirror vivo en el resto para que el sistema instalado siga recibiendo actualizaciones de seguridad.</p>
+      </div></div>
+
+      <div class="step rv"><div class="num">02</div><div>
+        <h4>Firma del kernel</h4>
+        <p><code>sbsign</code> firma cada <code>vmlinuz*</code> con la clave MOK y <code>sbverify</code> confirma el resultado antes de continuar. Si la firma no verifica, no hay ISO.</p>
+      </div></div>
+
+      <div class="step rv"><div class="num">03</div><div>
+        <h4>MokManager dentro de efi.img</h4>
+        <p>La imagen FAT de arranque se reconstruye conservando shim, GRUB y su configuración de prefijo, añadiendo <code>mmx64.efi</code>. Sin él, enrolar la clave desde el propio medio sería imposible.</p>
+      </div></div>
+
+      <div class="step rv"><div class="num">04</div><div>
+        <h4>Remontaje del árbol ISO9660</h4>
+        <p>Se inyectan los certificados públicos en la raíz (<code>MOK.crt</code>, <code>MOK.der</code>, <code>MOK.cer</code>) y el conjunto <code>/EFI/boot</code>, para que «boot from file» del firmware encuentre shim y su segunda etapa juntos.</p>
+      </div></div>
+
+      <div class="step rv"><div class="num">05</div><div>
+        <h4>Reconstrucción con el mkisofs de live-build</h4>
+        <p>La ISO final se genera con los mismos flags que usa upstream (<code>-R -r -J -joliet-long -l -iso-level 3</code>, <code>-e boot/grub/efi.img</code>, <code>-isohybrid-gpt-basdat</code>), conservando volumen y metadatos del original.</p>
+      </div></div>
+
+      <div class="step rv"><div class="num">06</div><div>
+        <h4>Verificación y arranque real</h4>
+        <p>Se comprueba la entrada El Torito UEFI, la firma <code>EFI PART</code> del GPT en el LBA 1, el contenido de <code>efi.img</code> y la firma de shim y GRUB. Después la ISO se arranca en QEMU con OVMF Secure Boot hasta ver <code>login:</code> en el puerto serie.</p>
+      </div></div>
+    </div>
+
+    <div class="code rv">
+      <button class="copy" data-copy="cd DebLinux&#10;./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso signed.iso mok/mok.key mok/mok.crt mok/mok.der&#10;./scripts/verify-iso.sh signed.iso mok/mok.crt" aria-label="Copiar comandos">Copiar</button>
+      <pre><span class="cm"># firma + reconstrucción de la ISO (sin sudo: solo lee la ISO)</span>
+./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso \
+    debian-live-lenovo300e-n4120-signed.iso \
+    mok/mok.key mok/mok.crt mok/mok.der
+
+<span class="cm"># cadena Secure Boot completa</span>
+./scripts/verify-iso.sh debian-live-lenovo300e-n4120-signed.iso mok/mok.crt
+
+<span class="cm"># arranque real con OVMF Secure Boot</span>
+./scripts/boot-test-iso.sh debian-live-lenovo300e-n4120-signed.iso</pre>
+    </div>
+  </section>
+
+  <!-- ================= HARDWARE ================= -->
+  <section id="hardware">
+    <p class="eyebrow rv">Hardware objetivo</p>
+    <h2 class="rv">Ajustado a <em>una máquina concreta</em>.</h2>
+    <p class="lede rv">No es una ISO genérica con otro fondo de pantalla: es el perfil de una Lenovo 300e de segunda generación, con sus límites de memoria, su GPU y su audio.</p>
+
+    <dl class="specs rv">
+      <div class="spec"><dt>Equipo</dt><dd>Lenovo 300e 2nd Gen (Type 81M9 / 82GK)</dd></div>
+      <div class="spec"><dt>Procesador</dt><dd>Intel Celeron N4120 · 4 núcleos · 1.10–2.60 GHz · Gemini Lake Refresh</dd></div>
+      <div class="spec"><dt>Gráficos</dt><dd>Intel UHD Graphics 600 · VA-API vía iHD + Mesa Iris</dd></div>
+      <div class="spec"><dt>Audio</dt><dd>Intel SOF · firmware-sof-signed · alsa-ucm-conf</dd></div>
+      <div class="spec"><dt>Red</dt><dd>Intel Wireless / Realtek · NetworkManager + applet</dd></div>
+      <div class="spec"><dt>Memoria</dt><dd>4 GB con zram (swap comprimida) y thermald</dd></div>
+      <div class="spec"><dt>Firmware</dt><dd>UEFI x86_64 con Secure Boot obligatorio · GPT</dd></div>
+      <div class="spec"><dt>Escritorio</dt><dd>Labwc + Waybar + foot + fuzzel · PipeWire</dd></div>
+    </dl>
+
+    <h3 class="rv" style="margin-top:64px;font-size:20px;letter-spacing:-.02em;font-weight:620">Atajos incluidos</h3>
+    <div class="keys">
+      <div class="key rv"><span>Abrir terminal</span><kbd>Super + Enter</kbd></div>
+      <div class="key rv"><span>Lanzador de apps</span><kbd>Super + D</kbd></div>
+      <div class="key rv"><span>Cerrar ventana</span><kbd>Super + Q</kbd></div>
+      <div class="key rv"><span>Alternar ventanas</span><kbd>Alt + Tab</kbd></div>
+      <div class="key rv"><span>Captura completa</span><kbd>Impr Pant</kbd></div>
+      <div class="key rv"><span>Captura por región</span><kbd>Shift + Impr Pant</kbd></div>
+      <div class="key rv"><span>Brillo</span><kbd>Teclas Fn</kbd></div>
+      <div class="key rv"><span>Volumen</span><kbd>Teclas Fn</kbd></div>
+      <div class="key rv"><span>Salir de la sesión</span><kbd>Super + Shift + Q</kbd></div>
+    </div>
+  </section>
+
+  <!-- ================= INSTALAR ================= -->
+  <section id="instalar">
+    <p class="eyebrow rv">Primer arranque</p>
+    <h2 class="rv">Cuatro pasos y <em>Secure Boot sigue encendido</em>.</h2>
+    <p class="lede rv">La clave MOK se genera en cada compilación, así que la ISO que descargues exige enrolarla una vez. No hay que desactivar nada en el firmware.</p>
+
+    <div class="howto">
+      <div class="hstep rv">
+        <div class="b" aria-hidden="true"></div>
+        <div>
+          <h4>Graba la ISO en un USB</h4>
+          <p>Sirve <code>dd</code>, Ventoy o cualquier grabador que escriba la imagen tal cual: la ISO es híbrida, con GPT y entrada El Torito para UEFI.</p>
+          <div class="code">
+            <button class="copy" data-copy="sudo dd if=debian-live-lenovo300e-n4120-signed.iso of=/dev/sdX bs=4M status=progress oflag=sync" aria-label="Copiar comando dd">Copiar</button>
+            <pre>sudo dd if=debian-live-lenovo300e-n4120-signed.iso \
+    of=/dev/sdX bs=4M status=progress oflag=sync</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="hstep rv">
+        <div class="b" aria-hidden="true"></div>
+        <div>
+          <h4>Arranca desde el USB con F12</h4>
+          <p>Enciende la Lenovo 300e y abre el menú de arranque del firmware. Antes del primer arranque del sistema hay que enrolar la MOK, porque el kernel está firmado con ella y el firmware todavía no la conoce.</p>
+        </div>
+      </div>
+
+      <div class="hstep rv">
+        <div class="b" aria-hidden="true"></div>
+        <div>
+          <h4>Enrola la clave desde MokManager</h4>
+          <p>Usa «Boot from file» o el shell EFI para ejecutar <code>EFI/boot/mmx64.efi</code> del USB y elige <b>Enroll key from disk</b>. Selecciona <code>MOK.der</code> o <code>MOK.cer</code> desde la raíz del medio, revisa que el sujeto sea <code>Debian Secure Boot MOK</code> y confirma. Si el firmware solo lista particiones FAT, el plan B está en el README: importar con <code>mokutil --import</code> desde el sistema instalado.</p>
+        </div>
+      </div>
+
+      <div class="hstep rv">
+        <div class="b" aria-hidden="true"></div>
+        <div>
+          <h4>Instala y arranca</h4>
+          <p>Calamares trabaja sobre GPT con partición EFI. En el sistema instalado, <code>grub-install</code> detecta que la sesión arrancó con Secure Boot y deja shim y GRUB firmados en la ESP; además, un servicio replica esa cadena en la ruta de medios extraíbles para cubrir una NVRAM borrada.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section id="faq">
+    <p class="eyebrow rv">Preguntas frecuentes</p>
+    <h2 class="rv">Lo que suele <em>frenar a la gente</em>.</h2>
+
+    <div class="faq">
+      <details class="rv">
+        <summary>¿Por qué la clave MOK cambia en cada compilación?</summary>
+        <p>Porque no se versiona ninguna clave privada en el repositorio: se genera un par RSA 2048 nuevo en cada ejecución del workflow. Es más seguro, pero implica que cada ISO publicada necesita su propio enrolamiento.</p>
+      </details>
+      <details class="rv">
+        <summary>¿Tengo que desactivar Secure Boot para instalar?</summary>
+        <p>No. Ese es justamente el objetivo del proyecto. Desactivarlo solo aparece como plan B en el README para el caso de que el explorador de ficheros del firmware no muestre el ISO9660 y no puedas lanzar MokManager desde el medio.</p>
+      </details>
+      <details class="rv">
+        <summary>¿Arranca en otro portátil?</summary>
+        <p>Debería arrancar en cualquier equipo UEFI x86_64, pero la ISO está afinada para la 300e: firmware Intel, audio SOF, GPU UHD 600 y gestión de energía de portátil. En otro hardware funcionará como un Debian live normal, sin esas optimizaciones.</p>
+      </details>
+      <details class="rv">
+        <summary>¿Cómo sé que la ISO que descargué arranca?</summary>
+        <p>Cada compilación arranca la ISO firmada en QEMU con OVMF Secure Boot y espera a ver el prompt <code>login:</code> en el puerto serie. Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel y systemd llegó a userspace. El log y las capturas quedan como artefacto del run.</p>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot">
+    <div>
+      <a class="brand" href="#top" style="margin-bottom:14px">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="9" fill="#0e1018" stroke="rgba(255,255,255,.12)"/>
+          <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#7c5cff" stroke-width="2.4" stroke-linejoin="round"/>
+          <circle cx="22.5" cy="11" r="1.9" fill="#2dd4ee"/>
+        </svg>
+        <span><b>DebLinux</b></span>
+      </a>
+      <p>Debian 13 ultraligero, firmado con MOK y probado arrancando, para una Lenovo 300e con el Secure Boot puesto.</p>
+    </div>
+    <div>
+      <h5>Repositorio</h5>
+      <a href="https://github.com/LiebeBlack/DebLinux" target="_blank" rel="noopener">Código y issues</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/actions" target="_blank" rel="noopener">Ejecuciones del workflow</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/releases" target="_blank" rel="noopener">Releases e ISO</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md" target="_blank" rel="noopener">README completo</a>
+    </div>
+    <div>
+      <h5>Documentación</h5>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-proceso-de-firma-mok-y-secure-boot" target="_blank" rel="noopener">Firma MOK y Secure Boot</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-cómo-enrolar-la-clave-mok-en-la-lenovo-300e" target="_blank" rel="noopener">Enrolar la clave</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-compilación-local-opcional" target="_blank" rel="noopener">Compilar en local</a>
+    </div>
+  </div>
+  <div class="legal">
+    <span>Debian 13 · Trixie · amd64</span>
+    <span>Secure Boot verificado en CI</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const nav = document.getElementById("nav");
+  const prog = document.getElementById("prog");
+  const links = [...document.querySelectorAll(".nav-links a")];
+  const sections = links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+
+  const onScroll = () => {
+    const y = window.scrollY;
+    nav.classList.toggle("solid", y > 24);
+    const h = document.documentElement.scrollHeight - window.innerHeight;
+    prog.style.width = (h > 0 ? (y / h) * 100 : 0) + "%";
+
+    let active = null;
+    for (const s of sections) {
+      if (s.getBoundingClientRect().top <= 140) active = s;
+    }
+    links.forEach(a => a.classList.toggle("on", active && a.getAttribute("href") === "#" + active.id));
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+
+  // reveal on scroll
+  const reveal = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.add("in");
+        reveal.unobserve(e.target);
+      }
+    }
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  document.querySelectorAll(".rv").forEach(el => reveal.observe(el));
+
+  // copy buttons
+  document.querySelectorAll(".copy").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const text = btn.dataset.copy || "";
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      const old = btn.textContent;
+      btn.textContent = "Copiado";
+      setTimeout(() => { btn.textContent = old; }, 1600);
+    });
+  });
+})();
+</script>
+</body>
+</html>

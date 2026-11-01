@@ -33,6 +33,12 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 
 ---
 
+## 🌐 Sitio del Proyecto (GitHub Pages)
+
+La web del proyecto está en [docs/index.html](docs/index.html): un único fichero HTML autocontenido (sin CDN, sin dependencias, sin build) que presenta la visión, la cadena Secure Boot, el pipeline, el hardware objetivo y los pasos de instalación. Para publicarla, en **Settings → Pages** elige *Deploy from a branch*, rama `main` y carpeta `/docs`; el fichero `docs/.nojekyll` evita el procesado de Jekyll.
+
+---
+
 ## 📁 Estructura del Repositorio
 
 ```text
@@ -40,6 +46,9 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 ├── .github/
 │   └── workflows/
 │       └── build-iso.yml               # Pipeline de GitHub Actions (ubuntu-latest)
+├── docs/
+│   ├── index.html                      # Web del proyecto (autocontenida, GitHub Pages)
+│   └── .nojekyll                       # Publicación directa sin Jekyll
 ├── auto/
 │   ├── clean                           # Script de limpieza live-build
 │   ├── config                          # Configuración base debian amd64 / grub-efi
