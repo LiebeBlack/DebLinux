@@ -126,10 +126,15 @@ if [ ! -f "$FINAL_ISO" ]; then
     exit 1
 fi
 
-ISO_FILES="$(xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null || true)"
+# xorriso prints each matched path enclosed in hard single quotes
+# ("'/EFI/boot/bootx64.efi'"), so strip them before comparing exact paths.
+ISO_FILES="$(xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null \
+    | sed "s/^'//; s/'$//" || true)"
 for REQUIRED in /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
     if ! printf '%s\n' "$ISO_FILES" | grep -qixF "$REQUIRED"; then
         echo "ERROR: ${REQUIRED} missing from the final ISO (Secure Boot chain incomplete)."
+        echo "Files present in /EFI/boot on the ISO:"
+        printf '%s\n' "$ISO_FILES"
         exit 1
     fi
 done

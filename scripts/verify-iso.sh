@@ -41,7 +41,10 @@ fail() {
 echo "=== Verifying Secure Boot chain in ${ISO} ==="
 
 # 1) MOK material and EFI boot files on the ISO filesystem
-ISO_PATHS="$(xorriso -indev "$ISO" -find / -maxdepth 3 2>/dev/null || true)"
+# xorriso prints each matched path enclosed in hard single quotes
+# ("'/MOK.crt'"), so strip them before comparing exact paths.
+ISO_PATHS="$(xorriso -indev "$ISO" -find / -maxdepth 3 2>/dev/null \
+    | sed "s/^'//; s/'$//" || true)"
 for REQUIRED in /MOK.crt /MOK.der /live/MOK.der /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
     # Exact match: otherwise /MOK.der would also match /live/MOK.der.
     printf '%s\n' "$ISO_PATHS" | grep -qxF "$REQUIRED" \
