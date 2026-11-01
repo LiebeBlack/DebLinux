@@ -48,3 +48,11 @@ fi
 if command -v swaybg >/dev/null 2>&1; then
     swaybg -c "#1a1b26" &
 fi
+
+# 8. Lock the screen when idle and suspend after a longer period
+if command -v swayidle >/dev/null 2>&1 && command -v swaylock >/dev/null 2>&1; then
+    swayidle -w \
+        timeout 300 'swaylock -f -c 1a1b26' \
+        timeout 600 'systemctl suspend' \
+        before-sleep 'swaylock -f -c 1a1b26' &
+fi

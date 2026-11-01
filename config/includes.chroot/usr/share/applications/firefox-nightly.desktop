@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Firefox Nightly
+GenericName=Web Browser
+Comment=Browse the World Wide Web (Nightly channel)
+Exec=env MOZ_ENABLE_WAYLAND=1 /opt/firefox-nightly/firefox %u
+TryExec=/opt/firefox-nightly/firefox
+Icon=/opt/firefox-nightly/browser/chrome/icons/default/default128.png
+Terminal=false
+StartupNotify=true
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+Keywords=Internet;WWW;Browser;Web;Explorer;

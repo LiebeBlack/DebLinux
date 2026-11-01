@@ -55,18 +55,14 @@ if [ -f /etc/polkit-1/rules.d/49-nopasswd_global.rules ]; then
     chown root:root /etc/polkit-1/rules.d/49-nopasswd_global.rules
 fi
 
-# 6. Enable seatd, NetworkManager and autologin setup services if installed
-if systemctl is-enabled seatd.service >/dev/null 2>&1 || [ -f /lib/systemd/system/seatd.service ]; then
-    systemctl enable seatd.service 2>/dev/null || true
-fi
-
-if systemctl is-enabled NetworkManager.service >/dev/null 2>&1 || [ -f /lib/systemd/system/NetworkManager.service ]; then
-    systemctl enable NetworkManager.service 2>/dev/null || true
-fi
-
-if [ -f /etc/systemd/system/setup-autologin.service ]; then
-    systemctl enable setup-autologin.service 2>/dev/null || true
-fi
+# 6. Enable seatd, NetworkManager, thermal and zram services if installed
+for SERVICE in seatd NetworkManager thermald zramswap setup-autologin; do
+    if [ -f "/lib/systemd/system/${SERVICE}.service" ] \
+        || [ -f "/usr/lib/systemd/system/${SERVICE}.service" ] \
+        || [ -f "/etc/systemd/system/${SERVICE}.service" ]; then
+        systemctl enable "${SERVICE}.service" 2>/dev/null || true
+    fi
+done
 
 # 7. Hardware audio UCM2 profile verification
 if [ -d /usr/share/alsa/ucm2 ]; then

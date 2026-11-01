@@ -1,0 +1,5 @@
+# zram-tools configuration for the 4 GB Lenovo 300e.
+# Compressed swap in RAM avoids hitting the slow eMMC when memory is tight.
+ALGO=zstd
+PERCENT=50
+PRIORITY=100

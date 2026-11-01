@@ -5,7 +5,7 @@
 #   1. MOK enrollment material + EFI boot files on the ISO9660 tree
 #   2. El Torito UEFI boot entry pointing to the GRUB EFI image
 #   3. shim (BOOTX64.EFI) and GRUB (GRUBX64.EFI) inside that EFI image
-#   4. shim signed by the Microsoft UEFI CA (Secure Boot trust anchor)
+#   4. shim signed by the Microsoft UEFI CA and GRUB signed by Debian
 #   5. kernel image(s) signed by the generated MOK certificate
 
 set -euo pipefail
@@ -24,7 +24,14 @@ if [ ! -f "$MOK_CRT" ]; then
 fi
 
 WORK_DIR="$(mktemp -d /tmp/iso-verify-XXXXXX)"
-trap 'rm -rf "$WORK_DIR"' EXIT
+# xorriso restores the ISO's read-only directory modes on extraction, so make
+# the tree writable before removing it. Without this the cleanup fails with
+# "Permission denied" and the script exits 1 even after a successful check.
+cleanup() {
+    chmod -R u+rwX "$WORK_DIR" 2>/dev/null || true
+    rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
 
 fail() {
     echo "ERROR: $*"
@@ -59,13 +66,23 @@ printf '%s\n' "$EFI_CONTENT" | grep -qi 'GRUBX64' \
     || fail "GRUB (GRUBX64.EFI) missing from the EFI boot image"
 echo "OK: EFI boot image contains shim + GRUB."
 
-# 4) shim must be signed by Microsoft, otherwise Secure Boot rejects it
-xorriso -osirrox on -indev "$ISO" -extract /EFI/boot/bootx64.efi "$WORK_DIR/bootx64.efi" >/dev/null 2>&1 \
-    || fail "cannot extract /EFI/boot/bootx64.efi"
+# 4) The boot volume itself must carry a trusted chain: shim is signed by
+#    Microsoft (trusted by the firmware) and GRUB by Debian (trusted by shim).
+#    Check the binaries inside efi.img, which is what the firmware actually
+#    boots, instead of the copies on the ISO9660 tree.
+mcopy -i "$WORK_DIR/efi.img" ::/EFI/boot/BOOTX64.EFI "$WORK_DIR/bootx64.efi" >/dev/null 2>&1 \
+    || fail "cannot extract shim (BOOTX64.EFI) from the EFI boot image"
 SHIM_SIGNERS="$(sbverify --list "$WORK_DIR/bootx64.efi" 2>/dev/null || true)"
 printf '%s\n' "$SHIM_SIGNERS" | grep -qi 'microsoft' \
     || fail "shim is not signed by the Microsoft UEFI CA"
 echo "OK: shim is Microsoft UEFI CA signed."
+
+mcopy -i "$WORK_DIR/efi.img" ::/EFI/boot/GRUBX64.EFI "$WORK_DIR/grubx64.efi" >/dev/null 2>&1 \
+    || fail "cannot extract GRUB (GRUBX64.EFI) from the EFI boot image"
+GRUB_SIGNERS="$(sbverify --list "$WORK_DIR/grubx64.efi" 2>/dev/null || true)"
+printf '%s\n' "$GRUB_SIGNERS" | grep -qi 'debian' \
+    || fail "GRUB is not signed by Debian; shim will reject it under Secure Boot"
+echo "OK: GRUB is Debian-signed (trusted by shim)."
 
 # 5) Every kernel in /live must verify against the generated MOK certificate
 xorriso -osirrox on -indev "$ISO" -extract /live "$WORK_DIR/live" >/dev/null 2>&1 \

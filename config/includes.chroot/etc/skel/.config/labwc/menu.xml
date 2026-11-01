@@ -8,6 +8,9 @@
     <item label="Terminal (Foot)">
       <action name="Execute" command="foot" />
     </item>
+    <item label="Web Browser (Firefox Nightly)">
+      <action name="Execute" command="firefox-nightly" />
+    </item>
     <item label="File Manager (PCManFM)">
       <action name="Execute" command="pcmanfm" />
     </item>

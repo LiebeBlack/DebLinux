@@ -1,0 +1,59 @@
+#!/bin/sh
+# 0200-firefox-nightly.hook.chroot
+# Installs the current Firefox Nightly tarball into /opt/firefox-nightly.
+# Nightly is not in the Debian archive, so it is downloaded from Mozilla and
+# verified against the .checksums file published next to the tarball.
+
+set -e
+
+DOWNLOAD_URL="https://download.mozilla.org/?product=firefox-nightly-latest&os=linux64&lang=en-US"
+DEST="/opt/firefox-nightly"
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+echo "=== Resolving the current Firefox Nightly build ==="
+# The product URL is a moving redirect; resolve it once so the tarball and
+# its .checksums file come from the same build directory.
+FINAL_URL="$(curl -fsSIL -o /dev/null -w '%{url_effective}' "$DOWNLOAD_URL")"
+TARBALL="$(basename "$FINAL_URL")"
+BUILD_DIR="$(dirname "$FINAL_URL")"
+CHECKSUMS_URL="${BUILD_DIR}/${TARBALL%.tar.xz}.checksums"
+
+echo "=== Downloading Firefox Nightly (${TARBALL}) ==="
+curl -fsSL --retry 3 -o "$TMP_DIR/${TARBALL}" "$FINAL_URL"
+curl -fsSL --retry 3 -o "$TMP_DIR/checksums" "$CHECKSUMS_URL"
+
+# Format: <hash> sha512 <size> <filename>
+EXPECTED="$(awk -v f="${TARBALL}" '$2 == "sha512" && $4 == f { print $1; exit }' "$TMP_DIR/checksums")"
+if [ -z "$EXPECTED" ]; then
+    echo "ERROR: no SHA512 entry for ${TARBALL} in ${CHECKSUMS_URL}"
+    exit 1
+fi
+
+ACTUAL="$(sha512sum "$TMP_DIR/${TARBALL}" | awk '{print $1}')"
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+    echo "ERROR: Firefox Nightly checksum mismatch"
+    echo "  expected: ${EXPECTED}"
+    echo "  actual:   ${ACTUAL}"
+    exit 1
+fi
+
+echo "=== Installing Firefox Nightly into ${DEST} ==="
+rm -rf "$DEST"
+mkdir -p "$DEST"
+tar -xJf "$TMP_DIR/${TARBALL}" -C "$DEST" --strip-components=1
+chmod 755 "$DEST/firefox" "$DEST/firefox-bin"
+
+ln -sf "$DEST/firefox" /usr/local/bin/firefox-nightly
+
+# Catch a missing runtime library at build time instead of shipping a browser
+# that cannot start. The tarball bundles NSS and the other Mozilla libraries.
+if LD_LIBRARY_PATH="$DEST" ldd "$DEST/libxul.so" 2>/dev/null | grep -q 'not found'; then
+    echo "ERROR: Firefox Nightly is missing runtime libraries:"
+    LD_LIBRARY_PATH="$DEST" ldd "$DEST/libxul.so" | grep 'not found'
+    exit 1
+fi
+
+NIGHTLY_VERSION="$(grep -m 1 '^Version=' "$DEST/application.ini" | cut -d= -f2)"
+echo "=== Firefox Nightly ${NIGHTLY_VERSION} installed ==="

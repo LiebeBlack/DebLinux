@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       debian_version:
@@ -14,14 +16,30 @@ on:
         options:
           - trixie
           - bookworm
+      debian_snapshot:
+        description: 'Debian snapshot timestamp (YYYYMMDDTHHMMSSZ) or "live"'
+        required: false
+        default: '20261031T000000Z'
+      run_boot_test:
+        description: 'Boot-test the signed ISO under OVMF Secure Boot (QEMU)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build, Sign and Repack ISO
     runs-on: ubuntu-latest
+    # Needed to publish the ISO as a GitHub Release for v* tags.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -37,15 +55,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            isolinux \
-            syslinux-utils \
             sbsigntool \
             openssl \
             xorriso \
             dosfstools \
             mtools \
-            grub-efi-amd64-bin \
-            grub-pc-bin \
+            zstd \
             shim-signed
 
           # ubuntu-latest only ships live-build 3.0~a57 (2013) and its
@@ -58,6 +73,15 @@ jobs:
             https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
           curl -fsSL -o /tmp/debian-archive-keyring.deb \
             https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+
+          # Pin the build toolchain: these three .debs are installed as root.
+          cat > /tmp/toolchain.sha256 <<'EOF'
+          58e09779881cbcc631c49ceb703413e0247a87db01823e597b2a1c40a2afd8f4  live-build.deb
+          8c02cb8ad712eb67afb0d23fab175c562804cc97eda70b70cb0f3bc2a21732d7  debootstrap.deb
+          9ea7778e443144ca490668737a8ab22dd3e748bb99e805e22ec055abeb3c7fac  debian-archive-keyring.deb
+          EOF
+          (cd /tmp && sha256sum --check toolchain.sha256)
+
           sudo apt-get install -y /tmp/debian-archive-keyring.deb /tmp/debootstrap.deb /tmp/live-build.deb
 
           echo "live-build version on PATH:"
@@ -79,10 +103,24 @@ jobs:
       - name: Configure Live-Build for Debian amd64
         env:
           DEBIAN_VERSION: ${{ github.event.inputs.debian_version || 'trixie' }}
+          DEBIAN_SNAPSHOT: ${{ github.event.inputs.debian_snapshot || '20261031T000000Z' }}
         run: |
           echo "Configuring live-build for Debian suite: ${DEBIAN_VERSION}"
+          echo "Build-time packages pinned to: ${DEBIAN_SNAPSHOT}"
           sudo lb clean --purge
-          sudo DEBIAN_VERSION="${DEBIAN_VERSION}" lb config
+          sudo DEBIAN_VERSION="${DEBIAN_VERSION}" DEBIAN_SNAPSHOT="${DEBIAN_SNAPSHOT}" lb config
+
+      # Must run after lb clean --purge (which drops cache/) and before lb build.
+      - name: Restore Live-Build Package Cache
+        uses: actions/cache@v4
+        with:
+          # live-build stores downloaded .debs in cache/packages.<stage>
+          path: |
+            cache/packages.bootstrap
+            cache/packages.chroot
+          key: lb-apt-${{ runner.os }}-${{ hashFiles('auto/config', 'config/package-lists/**') }}
+          restore-keys: |
+            lb-apt-${{ runner.os }}-
 
       - name: Execute Live-Build Compilation
         run: |
@@ -129,7 +167,37 @@ jobs:
             debian-live-lenovo300e-n4120-signed.iso \
             mok/mok.crt
 
+      - name: Install Boot Test Dependencies
+        if: success() && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_boot_test == 'true'))
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 \
+            ovmf \
+            socat \
+            tesseract-ocr \
+            netpbm
+
+      - name: Boot Test Signed ISO under OVMF Secure Boot
+        if: success() && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_boot_test == 'true'))
+        run: |
+          chmod +x scripts/boot-test-iso.sh
+          ./scripts/boot-test-iso.sh debian-live-lenovo300e-n4120-signed.iso
+
+      - name: Upload Boot Test Evidence
+        if: always() && hashFiles('boot-test-artifacts/**') != ''
+        uses: actions/upload-artifact@v5
+        with:
+          name: secureboot-boot-test
+          path: boot-test-artifacts
+          retention-days: 14
+
+      # Run even when verification fails: the signed ISO costs a full
+      # live-build run, so it must not be lost over a failed check. The
+      # checksum is written only after sign-and-repack.sh finishes, which
+      # keeps a half-written ISO from being published as final.
       - name: Upload Repacked SecureBoot ISO and Checksum
+        if: always() && hashFiles('debian-live-lenovo300e-n4120-signed.iso.sha256') != ''
         uses: actions/upload-artifact@v5
         with:
           name: debian-13-lenovo-300e-signed-iso
@@ -137,6 +205,8 @@ jobs:
             debian-live-lenovo300e-n4120-signed.iso
             debian-live-lenovo300e-n4120-signed.iso.sha256
           retention-days: 14
+          # The ISO is already compressed; recompressing it just burns CI time.
+          compression-level: 0
 
       - name: Upload Public MOK Certificates
         uses: actions/upload-artifact@v5
@@ -146,3 +216,35 @@ jobs:
             mok/mok.crt
             mok/mok.der
           retention-days: 14
+
+      - name: Publish GitHub Release
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          ISO="debian-live-lenovo300e-n4120-signed.iso"
+          FILES=("$ISO" "${ISO}.sha256" "mok/mok.crt" "mok/mok.der")
+
+          if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
+            printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
+            gpg --batch --yes --pinentry-mode loopback \
+              --passphrase "${GPG_PASSPHRASE:-}" \
+              --armor --detach-sign --output "${ISO}.asc" "$ISO"
+            FILES+=("${ISO}.asc")
+          else
+            echo "GPG_PRIVATE_KEY is not configured; publishing without a detached signature."
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" "${FILES[@]}" \
+            --title "Debian 13 Lenovo 300e ${GITHUB_REF_NAME}" \
+            --notes "ISO live de Debian 13 para Lenovo 300e (N4120), firmada con MOK.
+
+          Verifica la descarga con:
+          \`\`\`
+          sha256sum -c ${ISO}.sha256
+          \`\`\`
+
+          Las claves públicas MOK van adjuntas (\`MOK.crt\`, \`MOK.der\`)."

@@ -3,6 +3,28 @@ set -e
 
 DISTRIBUTION="${DEBIAN_VERSION:-trixie}"
 
+# Pin the debootstrap base system to an immutable Debian snapshot, so a
+# rebuild does not silently pick up newer essential packages.
+# Set DEBIAN_SNAPSHOT="live" to build against the current archive instead.
+#
+# Only bootstrap is pinned on purpose: live-build copies the *chroot* mirror
+# into the final /etc/apt/sources.list, so pinning chroot would leave the live
+# session and the Calamares-installed system pointing at a stale snapshot
+# without security updates. Chroot and binary therefore use the live mirror.
+SNAPSHOT="${DEBIAN_SNAPSHOT:-20261031T000000Z}"
+case "${SNAPSHOT}" in
+    ""|live|none)
+        PARENT_MIRROR_BOOTSTRAP="http://deb.debian.org/debian/"
+        APT_OPTIONS="--yes"
+        ;;
+    *)
+        PARENT_MIRROR_BOOTSTRAP="https://snapshot.debian.org/archive/debian/${SNAPSHOT}/"
+        # Snapshot Release files keep the original Valid-Until date. Their
+        # content is immutable, so accept it instead of failing the build.
+        APT_OPTIONS="--yes -oAcquire::Check-Valid-Until=false"
+        ;;
+esac
+
 # Debian 13 (Trixie) is Debian Stable: updates and security repositories are fully active
 if [ "${DISTRIBUTION}" = "testing" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "unstable" ]; then
     UPDATES="false"
@@ -18,9 +40,13 @@ lb config noauto \
     --mirror-bootstrap "http://deb.debian.org/debian/" \
     --mirror-chroot "http://deb.debian.org/debian/" \
     --mirror-binary "http://deb.debian.org/debian/" \
-    --parent-mirror-bootstrap "http://deb.debian.org/debian/" \
+    --parent-mirror-bootstrap "${PARENT_MIRROR_BOOTSTRAP}" \
     --parent-mirror-chroot "http://deb.debian.org/debian/" \
     --parent-mirror-binary "http://deb.debian.org/debian/" \
+    --parent-mirror-chroot-security "http://security.debian.org/debian-security/" \
+    --parent-mirror-binary-security "http://security.debian.org/debian-security/" \
+    --apt-options "${APT_OPTIONS}" \
+    --chroot-squashfs-compression-type zstd \
     --binary-image iso-hybrid \
     --bootloaders grub-efi \
     --bootappend-live "boot=live components quiet splash snd_intel_dspcfg.dsp_driver=3" \

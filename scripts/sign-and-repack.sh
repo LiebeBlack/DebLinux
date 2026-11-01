@@ -34,6 +34,8 @@ fi
 
 WORK_DIR="$(mktemp -d /tmp/iso-sign-XXXXXX)"
 cleanup() {
+    # xorriso restores the ISO's read-only directory modes on extraction.
+    chmod -R u+rwX "$WORK_DIR" 2>/dev/null || true
     rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
