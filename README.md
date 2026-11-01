@@ -69,8 +69,11 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   └── 06-desktop-extras.list.chroot # swayidle/swaylock, zram, thermald, runtime Firefox
 │   ├── includes.chroot/
 │   │   ├── etc/
-│   │   │   ├── calamares/modules/
-│   │   │   │   └── partition.conf      # Instalación obligatoria en tabla GPT (UEFI)
+│   │   │   ├── calamares/
+│   │   │   │   ├── settings.conf       # Secuencia de Calamares + job efi-fallback
+│   │   │   │   └── modules/
+│   │   │   │       ├── partition.conf  # Instalación obligatoria en tabla GPT (UEFI)
+│   │   │   │       └── efi-fallback.conf # Shim en EFI/BOOT antes del primer reinicio
 │   │   │   ├── systemd/system/
 │   │   │   │   ├── getty@tty1.service.d/
 │   │   │   │   │   └── autologin.conf  # Autologin en TTY1 para el usuario live
@@ -151,8 +154,8 @@ La ISO y el sistema instalado usan la cadena que Debian ya firma. No se genera n
 * **Kernel:** `linux-image-amd64` de Debian 13 ya incluye la firma PE/COFF de Debian. `sbsign` no se ejecuta; el archivo se copia tal cual a `/live/vmlinuz`.
 * **Sin MOK:** no hay `mok.key`, `MOK.crt`, `MOK.der`, `MOK.cer`, `mmx64.efi` ni pasos de enrolamiento. `mokutil` puede estar presente como dependencia de `shim-signed`, pero no se usa.
 * **Sin MBR de arranque:** la ISO no trae GRUB BIOS ni código de arranque en el MBR. Solo el MBR protector que exige GPT (tipo `0xEE`).
-* **Sistema instalado:** `grub-install` detecta la sesión UEFI y coloca shim y GRUB firmados en la ESP; el kernel instalado también viene firmado por Debian. No hace falta MOK.
-* **Ruta de respaldo:** `efi-removable-fallback.service` replica shim, GRUB y `grub.cfg` en `/boot/efi/EFI/BOOT` (sin `mmx64.efi`) para que la laptop siga arrancando si el firmware pierde la entrada NVRAM.
+* **Sistema instalado:** `grub-install` detecta la sesión UEFI y coloca shim y GRUB firmados en la ESP; el kernel instalado también viene firmado por Debian. No hace falta MOK. El job `shellprocess@efi-fallback` ejecuta el helper antes de desmontar el ESP, así que `EFI/BOOT` ya tiene shim en el primer arranque y no hay que entrar en setup.
+* **Ruta de respaldo:** `efi-removable-fallback` escribe shim, GRUB y `grub.cfg` en `/boot/efi/EFI/BOOT` (sin `mmx64.efi`) durante la instalación. El servicio `efi-removable-fallback.service` lo verifica y repara en cada arranque si el firmware pierde la entrada NVRAM.
 
 ### Arranque en la Lenovo 300e
 
@@ -209,7 +212,7 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 * **Repack UEFI:** `scripts/repack-iso.sh` extrae el árbol, conserva el kernel Debian, crea el GPT con MBR protector y ESP, y comprueba `EFI PART`, el tipo `0xEE`, la ausencia de APM/código BIOS y el contenido de `efi.img`.
 * **Verificación:** `scripts/verify-iso.sh` comprueba GPT + MBR protector, ausencia de APM y de entrada BIOS, la entrada El Torito UEFI, shim firmado por Microsoft, GRUB firmado por Debian y todos los kernels firmados por Debian. No usa MOK.
 * **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot **como disco USB** (el medio real) y se espera a que el sistema llegue a userspace: el arranque incluye `console=ttyS0,115200 console=tty0`, así que el log serie del invitado debe mostrar el prompt de login (`login:`). Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel firmado por Debian y systemd arrancó; si aparece un rechazo de firma, un `Kernel panic` o se agota el timeout (`BOOT_TIMEOUT`, 900 s por defecto), el job falla. Las capturas, el OCR y el log serie quedan como artefacto `secureboot-boot-test`. Con `BOOT_MEDIA=cdrom` se prueba la ruta El Torito.
-* **Instalación GPT:** `config/includes.chroot/etc/calamares/modules/partition.conf` fija `defaultPartitionTableType: gpt` y `requiredPartitionTableType: gpt`. La ISO solo trae GRUB para UEFI, así que el sistema instalado debe ser GPT con partición EFI; Calamares ya elige GPT en sistemas EFI, pero así queda explícito y se rechaza una instalación legacy/MBR.
+* **Instalación GPT:** `config/includes.chroot/etc/calamares/modules/partition.conf` fija `defaultPartitionTableType: gpt` y `requiredPartitionTableType: gpt`. La ISO solo trae GRUB para UEFI, así que el sistema instalado debe ser GPT con partición EFI; Calamares ya elige GPT en sistemas EFI, pero así queda explícito y se rechaza una instalación legacy/MBR. El job `shellprocess@efi-fallback` de `settings.conf` deja el respaldo shim en `EFI/BOOT` antes de reiniciar.
 * **Releases:** solo al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256` y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`. Un push a `main` no crea releases; para publicar, crea y empuja un tag `v*`. Ya no se adjuntan certificados MOK.
 
 ---

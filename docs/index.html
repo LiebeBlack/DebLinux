@@ -585,7 +585,7 @@
   <section id="instalar">
     <p class="eyebrow rv">Primer arranque</p>
     <h2 class="rv">Cuatro pasos y <em>Secure Boot sigue encendido</em>.</h2>
-    <p class="lede rv">La ISO usa la cadena firmada de Debian: no hay MOK que enrolar. No hay que desactivar nada en el firmware.</p>
+    <p class="lede rv">La ISO usa la cadena firmada de Debian: no hay MOK que enrolar. No hay que desactivar nada en el firmware ni entrar en setup.</p>
 
     <div class="howto">
       <div class="hstep rv">
@@ -613,7 +613,7 @@
         <div class="b" aria-hidden="true"></div>
         <div>
           <h4>Instala con Calamares</h4>
-          <p>Calamares exige GPT con partición EFI. Deja que cree la tabla y el ESP; el instalador coloca shim y GRUB firmados por Debian, y el kernel instalado ya viene firmado. No hay MOK ni pasos extra.</p>
+          <p>Calamares exige GPT con partición EFI. Deja que cree la tabla y el ESP; el instalador coloca shim y GRUB firmados por Debian, y el kernel instalado ya viene firmado. No hay MOK ni pasos extra: el instalador deja además shim en <code>EFI/BOOT</code> antes de reiniciar, así que el primer arranque no depende de la NVRAM ni de entrar en setup.</p>
         </div>
       </div>
 
@@ -621,7 +621,7 @@
         <div class="b" aria-hidden="true"></div>
         <div>
           <h4>Arranca el sistema instalado</h4>
-          <p>El sistema instalado usa la misma cadena Debian. Además, <code>efi-removable-fallback</code> replica shim, GRUB y <code>grub.cfg</code> en <code>EFI/BOOT</code> para que la laptop siga arrancando si el firmware pierde la entrada NVRAM; ya no copia <code>mmx64.efi</code>.</p>
+          <p>El sistema instalado usa la misma cadena Debian. El instalador ya deja shim en <code>EFI/BOOT</code> antes de reiniciar y <code>efi-removable-fallback</code> lo verifica y repara en cada arranque, para que la laptop siga arrancando si el firmware pierde la entrada NVRAM; no copia <code>mmx64.efi</code>.</p>
         </div>
       </div>
     </div>
@@ -639,7 +639,7 @@
       </details>
       <details class="rv">
         <summary>¿Tengo que desactivar Secure Boot para instalar?</summary>
-        <p>No. La ISO arranca con Secure Boot activado y no necesita enrolar nada. Si el firmware no lista el USB, usa «Boot from file» y selecciona <code>EFI/BOOT/BOOTX64.EFI</code> de la partición EFI del medio.</p>
+        <p>No. La ISO arranca con Secure Boot activado y no necesita enrolar nada; el instalador deja el respaldo shim listo antes de reiniciar, así que tampoco hay que entrar en setup. Si el firmware no lista el USB, usa «Boot from file» y selecciona <code>EFI/BOOT/BOOTX64.EFI</code> de la partición EFI del medio.</p>
       </details>
       <details class="rv">
         <summary>¿Arranca en otro portátil?</summary>
