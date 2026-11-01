@@ -1,8 +1,9 @@
 #!/bin/bash
 # scripts/sign-and-repack.sh
-# Extracts vmlinuz from Debian live ISO, signs it with MOK key using sbsign,
-# rebuilds the EFI boot image with MokManager, mirrors the EFI boot set into the
-# ISO9660 tree and repacks the hybrid UEFI ISO.
+# Extracts the Debian live ISO tree, signs its kernel(s) with the MOK key,
+# rebuilds the EFI boot image with MokManager, injects the MOK certificates and
+# the EFI boot set into that tree, and builds the final hybrid UEFI ISO with the
+# same mkisofs options live-build used (mirrored in /etc/auto/config).
 
 set -euo pipefail
 
@@ -64,31 +65,57 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "=== Step 1: Extracting /live directory from ${ORIG_ISO} ==="
-mkdir -p "$WORK_DIR/extracted"
-xorriso -osirrox on -indev "$ORIG_ISO" -extract /live "$WORK_DIR/extracted"
+EXTRACT_TARGET="$WORK_DIR/extracted"
 
-# Find actual kernel regular files (excluding symlinks)
-KERNELS=$(find "$WORK_DIR/extracted" -type f -name "vmlinuz*" | sort)
+echo "=== Step 1: Extracting the ISO tree from ${ORIG_ISO} ==="
+xorriso -osirrox on -indev "$ORIG_ISO" -extract / "$EXTRACT_TARGET"
 
-if [ -z "$KERNELS" ]; then
-    echo "ERROR: No vmlinuz executable found in extracted ISO files!"
+# Depending on the xorriso version, extracting "/" places the ISO contents
+# directly in EXTRACT_TARGET or below an extra directory level. Discover the
+# real tree root instead of assuming one of the two layouts.
+ISO_TREE="$EXTRACT_TARGET"
+if [ ! -d "$ISO_TREE/live" ]; then
+    ISO_TREE="$(find "$EXTRACT_TARGET" -maxdepth 3 -type d -name live 2>/dev/null \
+        | head -n 1 | xargs -r dirname)"
+fi
+
+if [ -z "$ISO_TREE" ] || [ ! -d "$ISO_TREE/live" ] || [ ! -f "$ISO_TREE/boot/grub/efi.img" ]; then
+    echo "ERROR: unexpected tree layout after extracting ${ORIG_ISO}:"
+    find "$EXTRACT_TARGET" -maxdepth 3 2>/dev/null | head -n 40
+    exit 1
+fi
+echo "ISO tree root: ${ISO_TREE}"
+chmod -R u+rwX "$ISO_TREE"
+
+echo "=== Step 2: Signing kernel executables with sbsign ==="
+mapfile -t KERNELS < <(find "$ISO_TREE/live" -maxdepth 1 -type f -name 'vmlinuz*' | sort)
+
+if [ "${#KERNELS[@]}" -eq 0 ]; then
+    echo "ERROR: No vmlinuz executable found in ${ISO_TREE}/live!"
     exit 1
 fi
 
-echo "=== Step 2: Signing kernel executables with sbsign ==="
-for KERNEL in $KERNELS; do
+for KERNEL in "${KERNELS[@]}"; do
     KNAME=$(basename "$KERNEL")
     echo "Signing kernel binary: ${KNAME}..."
     sbsign --key "$MOK_KEY" --cert "$MOK_CRT" --output "${KERNEL}.signed" "$KERNEL"
-    
-    echo "Verifying signature on ${KNAME}.signed..."
+
+    echo "Verifying signature on ${KNAME}..."
     sbverify --cert "$MOK_CRT" "${KERNEL}.signed"
-    
-    # Overwrite extracted kernel with signed version
-    mv "${KERNEL}.signed" "$KERNEL"
+
+    mv -f "${KERNEL}.signed" "$KERNEL"
     chmod 644 "$KERNEL"
 done
+
+# /live/vmlinuz is a symlink on live-build images; when it is a separate file it
+# has to carry the signed image as well.
+SIGNED_KERNEL="$(printf '%s\n' "${KERNELS[@]}" | grep -v '/vmlinuz$' | head -n 1 || true)"
+SIGNED_KERNEL="${SIGNED_KERNEL:-${KERNELS[0]}}"
+if [ ! -f "$ISO_TREE/live/vmlinuz" ] || ! cmp -s "$SIGNED_KERNEL" "$ISO_TREE/live/vmlinuz"; then
+    echo "Staging signed kernel as /live/vmlinuz..."
+    cp -f "$SIGNED_KERNEL" "$ISO_TREE/live/vmlinuz"
+    chmod 644 "$ISO_TREE/live/vmlinuz"
+fi
 
 echo "=== Step 3: Adding MokManager to the EFI boot image ==="
 # shim only searches for MokManager on the filesystem it was loaded from, i.e.
@@ -96,7 +123,7 @@ echo "=== Step 3: Adding MokManager to the EFI boot image ==="
 # live-build copies mmx64.efi there only when no signed GRUB is available, so
 # the image has to be rebuilt here with MokManager added.
 EFI_IMG_OLD="$WORK_DIR/efi-orig.img"
-xorriso -osirrox on -indev "$ORIG_ISO" -extract /boot/grub/efi.img "$EFI_IMG_OLD"
+cp "$ISO_TREE/boot/grub/efi.img" "$EFI_IMG_OLD"
 
 if ! mdir -i "$EFI_IMG_OLD" ::/EFI/boot >/dev/null 2>&1; then
     echo "ERROR: ${EFI_IMG_OLD} has no /EFI/boot directory (unexpected EFI boot image layout)."
@@ -107,9 +134,31 @@ fi
 # and the GRUB prefix config that live-build put there.
 EFI_STAGE="$WORK_DIR/efi-tree"
 mkdir -p "$EFI_STAGE"
+
+# mtools is not consistent about whether a directory copy also creates the
+# source directory itself, so normalise the result instead of relying on it:
+# after this, <stage>/EFI/boot and <stage>/boot/grub always exist.
+ensure_subdir() {
+    local PARENT="$1"
+    local REL="$2"
+    local FOUND
+
+    [ -d "$PARENT/$REL" ] && return 0
+    FOUND="$(find "$PARENT" -maxdepth 3 -type d -path "*/$REL" 2>/dev/null | head -n 1 || true)"
+    if [ -n "$FOUND" ]; then
+        mkdir -p "$PARENT/$(dirname "$REL")"
+        mv "$FOUND" "$PARENT/$REL"
+        return 0
+    fi
+    return 1
+}
+
 mcopy -s -n -m -i "$EFI_IMG_OLD" ::/EFI "$EFI_STAGE"
+ensure_subdir "$EFI_STAGE" EFI/boot \
+    || { echo "ERROR: cannot stage /EFI/boot from the EFI boot image."; exit 1; }
 if mdir -i "$EFI_IMG_OLD" ::/boot >/dev/null 2>&1; then
     mcopy -s -n -m -i "$EFI_IMG_OLD" ::/boot "$EFI_STAGE"
+    ensure_subdir "$EFI_STAGE" boot/grub || true
 fi
 
 echo "Adding MokManager ($(basename "$MMX_SRC")) to the EFI boot image..."
@@ -131,107 +180,141 @@ if [ -d "$EFI_STAGE/boot/grub" ]; then
     mcopy -m -i "$EFI_IMG_NEW" "$EFI_STAGE"/boot/grub/* "::boot/grub"
 fi
 
-echo "=== Step 4: Repacking bootable hybrid ISO with xorriso ==="
-# Remove target file if it already exists
-rm -f "$FINAL_ISO"
-
-# Build xorriso arguments to update signed kernels and inject MOK certificates
-XORRISO_ARGS=(
-    "-indev" "$ORIG_ISO"
-    "-outdev" "$FINAL_ISO"
-    "-boot_image" "any" "keep"
-)
-
-# Update each versioned kernel and ensure /live/vmlinuz is updated
-FIRST_KERNEL=""
-for KERNEL in $KERNELS; do
-    KNAME=$(basename "$KERNEL")
-    echo "Staging signed kernel for ISO injection: /live/${KNAME}"
-    XORRISO_ARGS+=("-update" "$KERNEL" "/live/${KNAME}")
-    if [ -z "$FIRST_KERNEL" ]; then
-        FIRST_KERNEL="$KERNEL"
+EFI_IMAGE_CONTENT="$(mdir -i "$EFI_IMG_NEW" ::/EFI/boot 2>/dev/null || true)"
+for REQUIRED in BOOTX64 GRUBX64 MMX64; do
+    if ! printf '%s\n' "$EFI_IMAGE_CONTENT" | grep -qi "$REQUIRED"; then
+        echo "ERROR: ${REQUIRED}.EFI missing from the rebuilt EFI boot image."
+        exit 1
     fi
 done
+cp -f "$EFI_IMG_NEW" "$ISO_TREE/boot/grub/efi.img"
 
-# Ensure standard unversioned /live/vmlinuz points to signed kernel
-if [ -n "$FIRST_KERNEL" ]; then
-    XORRISO_ARGS+=("-update" "$FIRST_KERNEL" "/live/vmlinuz")
-fi
+echo "=== Step 4: Injecting MOK material and the EFI boot set ==="
+install -m 0644 "$MOK_CRT" "$ISO_TREE/MOK.crt"
+install -m 0644 "$MOK_DER" "$ISO_TREE/MOK.der"
+install -m 0644 "$MOK_CER" "$ISO_TREE/MOK.cer"
+install -m 0644 "$MOK_DER" "$ISO_TREE/live/MOK.der"
 
-# Inject MOK certificates to ISO root and /live so user can enroll them from UEFI MokManager
-XORRISO_ARGS+=("-update" "$MOK_CRT" "/MOK.crt")
-XORRISO_ARGS+=("-update" "$MOK_DER" "/MOK.der")
-XORRISO_ARGS+=("-update" "$MOK_CER" "/MOK.cer")
-XORRISO_ARGS+=("-update" "$MOK_DER" "/live/MOK.der")
-
-echo "=== Step 4b: Mirroring the EFI boot set into the ISO9660 tree ==="
-# live-build only puts the EFI set inside efi.img, but a firmware "boot from
-# file" menu can only open files on the ISO9660 tree. Mirror the complete set
-# (shim, GRUB, its prefix config and MokManager) so that path is actually
-# bootable, and reuse the names already present in the tree instead of adding a
-# second file that only differs in case.
-EXISTING_EFI="$(xorriso -indev "$ORIG_ISO" -find /EFI/boot -type f 2>/dev/null \
-    | sed "s/^'//; s/'$//" || true)"
-
+# Reuse the names already present in the tree instead of adding a second file
+# that only differs in case, and mirror the whole set so a firmware
+# "boot from file" menu can start shim and find its second stage next to it.
 efi_tree_name() {
     local BASE="$1"
     local MATCH
 
-    MATCH="$(printf '%s\n' "$EXISTING_EFI" \
-        | awk -F/ -v b="$BASE" 'tolower($NF) == b { print $NF; exit }')"
+    MATCH="$(find "$ISO_TREE/EFI/boot" -maxdepth 1 -type f -iname "$BASE" -printf '%f\n' 2>/dev/null \
+        | head -n 1 || true)"
     printf '%s\n' "${MATCH:-$BASE}"
 }
 
-ISO_EFI_STAGE="$WORK_DIR/iso-efi-stage"
-mkdir -p "$ISO_EFI_STAGE"
-mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/bootx64.efi "$ISO_EFI_STAGE/bootx64.efi"
-mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/grubx64.efi "$ISO_EFI_STAGE/grubx64.efi"
-mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/mmx64.efi "$ISO_EFI_STAGE/mmx64.efi"
-mcopy -n -i "$EFI_IMG_NEW" ::/boot/grub/grub.cfg "$ISO_EFI_STAGE/grub.cfg"
+mkdir -p "$ISO_TREE/EFI/boot"
 
-for EFI_NAME in bootx64.efi grubx64.efi mmx64.efi grub.cfg; do
-    EFI_DEST="$(efi_tree_name "$EFI_NAME")"
-    echo "Staging /EFI/boot/${EFI_DEST} for the ISO9660 tree..."
-    XORRISO_ARGS+=("-update" "$ISO_EFI_STAGE/$EFI_NAME" "/EFI/boot/$EFI_DEST")
+# Use the staging tree as the source: FAT names come back in upper case, so
+# look them up case-insensitively and install them under the canonical name
+# (or the one the tree already uses).
+stage_file() {
+    find "$EFI_STAGE" -type f -iname "$1" 2>/dev/null | sort | head -n 1
+}
+
+GRUB_CFG_STAGE="$(find "$EFI_STAGE" -type f -path '*/boot/grub/grub.cfg' 2>/dev/null | head -n 1 || true)"
+if [ -z "$GRUB_CFG_STAGE" ]; then
+    GRUB_CFG_STAGE="$(stage_file grub.cfg)"
+fi
+
+EFI_SRC=(
+    "$(stage_file bootx64.efi)"
+    "$(stage_file grubx64.efi)"
+    "$(stage_file mmx64.efi)"
+    "$GRUB_CFG_STAGE"
+)
+EFI_CANONICAL=(bootx64.efi grubx64.efi mmx64.efi grub.cfg)
+PROBLEMS=0
+for INDEX in 0 1 2 3; do
+    if [ -z "${EFI_SRC[$INDEX]:-}" ] || [ ! -f "${EFI_SRC[$INDEX]}" ]; then
+        echo "ERROR: ${EFI_CANONICAL[$INDEX]} not found in the rebuilt EFI boot image."
+        PROBLEMS=1
+    fi
+done
+if [ "$PROBLEMS" -ne 0 ]; then
+    echo "Content of the rebuilt EFI boot image:"
+    find "$EFI_STAGE" -type f 2>/dev/null | sort
+    exit 1
+fi
+
+EFI_TREE_NAMES=()
+for INDEX in 0 1 2 3; do
+    EFI_DEST="$(efi_tree_name "${EFI_CANONICAL[$INDEX]}")"
+    EFI_TREE_NAMES+=("$EFI_DEST")
+    install -m 0644 "${EFI_SRC[$INDEX]}" "$ISO_TREE/EFI/boot/$EFI_DEST"
 done
 
-echo "Staging rebuilt EFI boot image (with MokManager) as /boot/grub/efi.img..."
-XORRISO_ARGS+=("-update" "$EFI_IMG_NEW" "/boot/grub/efi.img")
+echo "=== Step 5: Building the final hybrid UEFI ISO ==="
+# Keep the ISO metadata of the original image (volume id, application,
+# publisher, preparer) so the live medium looks exactly like live-build's.
+PVD_INFO="$(xorriso -indev "$ORIG_ISO" -pvd_info 2>/dev/null || true)"
+pvd_field() {
+    printf '%s\n' "$PVD_INFO" | sed -n "s/^$1 *: //p" | head -n 1
+}
+VOLUME_ID="$(pvd_field 'Volume Id')"
+APP_ID="$(pvd_field 'App Id')"
+PUBLISHER_ID="$(pvd_field 'Publisher Id')"
+PREPARER_ID="$(pvd_field 'Preparer Id')"
 
-# "* keep" copies the loaded El Torito image bytes, so the rebuilt efi.img would
-# never reach the boot entry. "replay", applied after all file changes, drops
-# the loaded boot equipment and re-creates it from the tree: the new efi.img
-# becomes the EFI boot image and the hybrid MBR/GPT system area is regenerated.
-XORRISO_ARGS+=("-boot_image" "any" "replay")
+# Same options live-build passes in binary_iso (xorriso -as mkisofs ...):
+# -R -r -J -joliet-long -l -iso-level 3, the EFI El Torito entry and the
+# hybrid MBR/GPT + APM layout that makes the image bootable from a USB stick.
+MKISOFS_ARGS=(
+    -as mkisofs
+    -R -r -J -joliet-long -l -iso-level 3
+    -e boot/grub/efi.img -no-emul-boot
+    -isohybrid-gpt-basdat -isohybrid-apm-hfsplus
+)
+if [ -n "$VOLUME_ID" ]; then
+    MKISOFS_ARGS+=(-V "$VOLUME_ID")
+fi
+if [ -n "$APP_ID" ]; then
+    MKISOFS_ARGS+=(-A "$APP_ID")
+fi
+if [ -n "$PUBLISHER_ID" ]; then
+    MKISOFS_ARGS+=(-publisher "$PUBLISHER_ID")
+fi
+if [ -n "$PREPARER_ID" ]; then
+    MKISOFS_ARGS+=(-p "$PREPARER_ID")
+fi
+# live-build pins every ISO volume date to SOURCE_DATE_EPOCH; do the same so the
+# rebuilt image keeps the build reproducible.
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+    MKISOFS_ARGS+=("--modification-date=$(date --utc -d "@${SOURCE_DATE_EPOCH}" +%Y%m%d%H%M%S00)")
+fi
 
-echo "Executing xorriso to generate final signed hybrid ISO..."
-xorriso "${XORRISO_ARGS[@]}"
+rm -f "$FINAL_ISO"
+echo "Executing xorriso -as mkisofs to generate the final signed hybrid ISO..."
+xorriso "${MKISOFS_ARGS[@]}" -o "$FINAL_ISO" "$ISO_TREE"
 
-echo "=== Step 5: Verification of Final ISO ==="
+echo "=== Step 6: Verification of Final ISO ==="
 if [ ! -f "$FINAL_ISO" ]; then
     echo "ERROR: Failed to create $FINAL_ISO"
     exit 1
 fi
 
-# Extract every mirrored file back out of the final ISO and compare it with the
-# staged copy. Extraction is checked by exact path, so the result does not
-# depend on how xorriso prints a directory listing.
-for EFI_NAME in bootx64.efi grubx64.efi mmx64.efi grub.cfg; do
-    EFI_DEST="$(efi_tree_name "$EFI_NAME")"
-    CHECK_FILE="$WORK_DIR/check-$EFI_NAME"
-    if ! xorriso -osirrox on -indev "$FINAL_ISO" \
-        -extract "/EFI/boot/${EFI_DEST}" "$CHECK_FILE" >/dev/null 2>&1; then
-        echo "ERROR: /EFI/boot/${EFI_DEST} missing from the final ISO (Secure Boot chain incomplete)."
-        echo "Files present in /EFI/boot on the ISO:"
-        xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null \
-            | sed "s/^'//; s/'$//" || true
-        exit 1
-    fi
-    if ! cmp -s "$ISO_EFI_STAGE/$EFI_NAME" "$CHECK_FILE"; then
-        echo "ERROR: /EFI/boot/${EFI_DEST} on the final ISO differs from the EFI boot image copy."
-        exit 1
-    fi
-done
+# The El Torito UEFI entry is what the firmware actually boots. A previous
+# approach updated the tree with -indev/-outdev and lost this entry silently,
+# so check the boot record of the finished image explicitly.
+TORITO_REPORT="$(xorriso -indev "$FINAL_ISO" -report_el_torito plain 2>/dev/null || true)"
+printf '%s\n' "$TORITO_REPORT" | grep -q 'UEFI' \
+    || { echo "ERROR: no UEFI El Torito boot entry in the final ISO."; exit 1; }
+printf '%s\n' "$TORITO_REPORT" | grep -q '/boot/grub/efi.img' \
+    || { echo "ERROR: the UEFI El Torito entry does not use /boot/grub/efi.img."; exit 1; }
+
+# The hybrid system area must still carry a GPT, otherwise the image only boots
+# as a CD and not from a USB stick.
+GPT_SIG="$( { dd if="$FINAL_ISO" bs=512 skip=1 count=1 status=none 2>/dev/null | head -c 8; } || true)"
+if [ "$GPT_SIG" != "EFI PART" ]; then
+    echo "ERROR: no GPT partition table in the final ISO system area."
+    xorriso -indev "$FINAL_ISO" -report_system_area plain 2>/dev/null || true
+    exit 1
+fi
+echo "OK: El Torito UEFI entry and hybrid GPT are present."
 
 # The firmware boots the EFI image, not the ISO9660 copy, so check inside it.
 EFI_IMG_FINAL="$WORK_DIR/efi-final.img"
@@ -249,9 +332,26 @@ for REQUIRED in BOOTX64 GRUBX64 MMX64; do
         exit 1
     fi
 done
-echo "Secure Boot chain present: shim (bootx64.efi) + GRUB (grubx64.efi) + MokManager (mmx64.efi)."
 
-echo "Final repacked ISO size: $(du -h "$FINAL_ISO" | cut -f1)"
+# Extract the mirrored files back out of the ISO and compare them byte for byte.
+INDEX=0
+for EFI_SOURCE in "${EFI_SRC[@]}"; do
+    EFI_DEST="${EFI_TREE_NAMES[$INDEX]}"
+    INDEX=$((INDEX + 1))
+    CHECK_FILE="$WORK_DIR/check-${EFI_DEST}"
+    if ! xorriso -osirrox on -indev "$FINAL_ISO" \
+        -extract "/EFI/boot/${EFI_DEST}" "$CHECK_FILE" >/dev/null 2>&1; then
+        echo "ERROR: /EFI/boot/${EFI_DEST} missing from the final ISO (firmware boot-from-file would fail)."
+        exit 1
+    fi
+    if ! cmp -s "$EFI_SOURCE" "$CHECK_FILE"; then
+        echo "ERROR: /EFI/boot/${EFI_DEST} on the final ISO differs from the EFI boot image copy."
+        exit 1
+    fi
+done
+echo "Secure Boot chain present: shim + GRUB + MokManager inside efi.img and /EFI/boot."
+
+echo "Final ISO size: $(du -h "$FINAL_ISO" | cut -f1)"
 echo "Generating SHA256 checksum..."
 sha256sum "$FINAL_ISO" > "${FINAL_ISO}.sha256"
 cat "${FINAL_ISO}.sha256"

@@ -100,7 +100,7 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 │           └── 0200-firefox-nightly.hook.chroot # Descarga e instala Firefox Nightly
 ├── scripts/
 │   ├── generate-mok.sh                 # Generador dinámico de claves MOK OpenSSL
-│   ├── sign-and-repack.sh              # Extracción, firma con sbsign y reempaquetado xorriso
+│   ├── sign-and-repack.sh              # Extracción del árbol, firma con sbsign y reconstrucción mkisofs
 │   ├── verify-iso.sh                   # Verificación de la cadena Secure Boot del ISO
 │   └── boot-test-iso.sh                # Arranque de prueba en QEMU/OVMF con Secure Boot
 ├── .gitignore
@@ -132,7 +132,7 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 2. **Firma del Kernel:** Se extrae el ejecutable PE/COFF del kernel (`vmlinuz`) del sistema compilado y se firma usando `sbsign --key mok.key --cert mok.crt`.
 3. **Verificación:** Se valida la firma con `sbverify --cert mok.crt`.
 4. **Inyección de MokManager:** se reconstruye `efi.img` (la imagen FAT que arranca el firmware) para añadir `mmx64.efi`, porque shim solo busca MokManager en el mismo sistema de ficheros desde el que se cargó y live-build no lo incluye cuando hay GRUB firmado. El conjunto completo (`bootx64.efi`, `grubx64.efi`, `grub.cfg` y `mmx64.efi`) se replica además en `/EFI/boot` del árbol ISO9660: shim busca su segunda etapa en su propio directorio, así que copiar solo MokManager dejaba una ruta «boot from file» que no arrancaba.
-5. **Inyección en ISO:** se reemplaza el kernel en `/live/vmlinuz`, se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`, `/MOK.cer`) y la nueva `efi.img`. Con `xorriso -boot_image any replay` se regenera la entrada El Torito y el área de sistema híbrida MBR/GPT a partir del árbol, de modo que el contenido nuevo de `efi.img` sea realmente la imagen de arranque.
+5. **Construcción de la ISO final:** se extrae el árbol completo de la ISO de live-build, se sustituye el kernel firmado en `/live`, se inyectan los certificados públicos en la raíz (`/MOK.crt`, `/MOK.der`, `/MOK.cer`, más `/live/MOK.der`) y la nueva `efi.img`, y se genera el ISO con **el mismo comando `xorriso -as mkisofs` que usa live-build** (`-R -r -J -joliet-long -l -iso-level 3`, `-e boot/grub/efi.img -no-emul-boot`, `-isohybrid-gpt-basdat -isohybrid-apm-hfsplus`), conservando el volume id y los metadatos PVD del original. Se hace así porque `xorriso -boot_image any replay` sobre una ISO de live-build aborta con *«Cannot enable EL Torito boot image #1 because it is not a data file in the ISO filesystem»* y descarta el arranque; reconstruir desde el árbol con las opciones de live-build sí produce una imagen arrancable.
 6. **Verificación de la cadena completa:** `scripts/sign-and-repack.sh` reextrae del ISO final los cuatro archivos de `/EFI/boot` y los compara byte a byte con la imagen de arranque, y `scripts/verify-iso.sh` comprueba que shim esté firmado por Microsoft, que GRUB lo esté por Debian (leyendo `GRUBX64.EFI` dentro de `efi.img`, que es lo que arranca el firmware), que `MMX64.EFI` esté dentro de `efi.img` y en el árbol, que la firma `EFI PART` del GPT siga en el LBA 1 para el arranque por USB y que todos los kernels verifiquen contra el certificado MOK.
 
 ### Arranque del Sistema Instalado (ruta tipo USB)
