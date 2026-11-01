@@ -173,6 +173,10 @@ jobs:
             tesseract-ocr-eng \
             netpbm
 
+      # Boots the signed ISO under OVMF Secure Boot and waits for the live
+      # system to reach userspace (login prompt on the serial console), so a
+      # rejected kernel or a broken initramfs fails the build instead of just
+      # showing a different screen.
       - name: Boot Test Signed ISO under OVMF Secure Boot
         if: success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_boot_test == 'true')
         run: |
@@ -212,6 +216,7 @@ jobs:
           path: |
             mok/mok.crt
             mok/mok.der
+            mok/mok.cer
           retention-days: 14
 
       - name: Publish GitHub Release
@@ -223,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           ISO="debian-live-lenovo300e-n4120-signed.iso"
-          FILES=("$ISO" "${ISO}.sha256" "mok/mok.crt" "mok/mok.der")
+          FILES=("$ISO" "${ISO}.sha256" "mok/mok.crt" "mok/mok.der" "mok/mok.cer")
 
           if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
             printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
@@ -244,4 +249,4 @@ jobs:
           sha256sum -c ${ISO}.sha256
           \`\`\`
 
-          Las claves públicas MOK van adjuntas (\`MOK.crt\`, \`MOK.der\`)."
+          Las claves públicas MOK van adjuntas (\`MOK.crt\`, \`MOK.der\`, \`MOK.cer\`)."

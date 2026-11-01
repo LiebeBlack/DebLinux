@@ -119,11 +119,11 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 
 ## 🔒 Proceso de Firma MOK y Secure Boot
 
-1. **Generación de Claves:** Durante el flujo de CI, se genera un par de claves X.509 RSA 2048 (`mok.key`, `mok.crt`, `mok.der`) con extensiones específicas de firma de código (`extendedKeyUsage = codeSigning, 1.3.6.1.4.1.2312.16.1.2`).
+1. **Generación de Claves:** Durante el flujo de CI, se genera un par de claves X.509 RSA 2048 (`mok.key`, `mok.crt`, `mok.der`, `mok.cer`) con extensiones específicas de firma de código (`extendedKeyUsage = codeSigning, 1.3.6.1.4.1.2312.16.1.2`). `mok.cer` es el mismo certificado DER que `mok.der` con la extensión que esperan algunas herramientas y selectores de fichero del firmware; no es una tercera clave.
 2. **Firma del Kernel:** Se extrae el ejecutable PE/COFF del kernel (`vmlinuz`) del sistema compilado y se firma usando `sbsign --key mok.key --cert mok.crt`.
 3. **Verificación:** Se valida la firma con `sbverify --cert mok.crt`.
 4. **Inyección de MokManager:** se reconstruye `efi.img` (la imagen FAT que arranca el firmware) para añadir `mmx64.efi`, porque shim solo busca MokManager en el mismo sistema de ficheros desde el que se cargó y live-build no lo incluye cuando hay GRUB firmado. También se deja una copia en `/EFI/boot` del árbol ISO9660 para el arranque manual por fichero.
-5. **Inyección en ISO:** se reemplaza el kernel en `/live/vmlinuz`, se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`) y la nueva `efi.img`. Con `xorriso -boot_image any replay` se regenera la entrada El Torito y el área de sistema híbrida MBR/GPT a partir del árbol, de modo que el contenido nuevo de `efi.img` sea realmente la imagen de arranque.
+5. **Inyección en ISO:** se reemplaza el kernel en `/live/vmlinuz`, se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`, `/MOK.cer`) y la nueva `efi.img`. Con `xorriso -boot_image any replay` se regenera la entrada El Torito y el área de sistema híbrida MBR/GPT a partir del árbol, de modo que el contenido nuevo de `efi.img` sea realmente la imagen de arranque.
 6. **Verificación de la cadena completa:** `scripts/verify-iso.sh` comprueba que shim esté firmado por Microsoft, que GRUB lo esté por Debian (leyendo `GRUBX64.EFI` dentro de `efi.img`, que es lo que arranca el firmware), que `MMX64.EFI` esté dentro de `efi.img`, que el área GPT siga presente para el arranque por USB y que todos los kernels verifiquen contra el certificado MOK.
 
 ### Cómo Enrolar la Clave MOK en la Lenovo 300e:
@@ -134,7 +134,7 @@ Al flashear la ISO a una memoria USB (usando `dd` o `ventoy`):
 2. **Antes del primer arranque** hay que enrolar la clave MOK, porque el kernel va firmado con ella y el firmware aún no la conoce:
    * Entra en el menú de arranque del firmware y usa la opción **"Boot from file"** / **"EFI Shell"** para ejecutar `EFI/boot/mmx64.efi` de la USB (la ISO trae `MOK.der`/`MOK.crt` en la raíz y `mmx64.efi` tanto dentro de `efi.img` como en `/EFI/boot`).
    * En MokManager selecciona **"Enroll key from disk"**.
-   * Navega a la partición de la USB y selecciona `MOK.der` (DER; es lo que MokManager reconoce de forma fiable; el `.crt` es PEM).
+   * Navega a la partición de la USB y selecciona `MOK.der` o `MOK.cer` (ambos son el certificado DER; el `.crt` es PEM).
    * Selecciona **"View Key"** para confirmar los datos (`Debian Secure Boot MOK`).
    * Selecciona **"Continue"** -> **"Yes"** -> confirma la inscripción y reinicia con **"Reboot"**.
 3. El equipo arrancará normalmente en Debian 13 bajo Secure Boot activado al 100%; el shim de Debian valida GRUB y GRUB valida el kernel con la clave MOK ya enrolada.
@@ -156,7 +156,8 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 * **Squashfs zstd:** `--chroot-squashfs-compression-type zstd` acelera la descompresión en el N4120.
 * **Herramientas verificadas:** los `.deb` de live-build, debootstrap y debian-archive-keyring que se instalan como root se comprueban con SHA256.
 * **Caché:** `cache/packages.bootstrap` y `cache/packages.chroot` (donde live-build guarda los `.deb`) se conservan entre runs con `actions/cache`, y `concurrency` cancela builds duplicados de la misma rama.
-* **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot y se detecta si el firmware rechaza shim/GRUB (se falla si aparece un rechazo de firma o un error de arranque). La firma del kernel se valida por separado en `verify-iso.sh` contra la MOK; OVMF arranca sin esa clave enrolada, así que esta prueba no llega a validar el kernel. Las capturas y el OCR quedan como artefacto `secureboot-boot-test`.
+* **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot y se espera a que el sistema llegue a userspace: el arranque incluye `console=ttyS0,115200`, así que el log serie del invitado debe mostrar el prompt de login (`login:`). Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel y systemd arrancó; si aparece un rechazo de firma, un `Kernel panic` o se agota el timeout (`BOOT_TIMEOUT`, 900 s por defecto), el job falla. Las capturas, el OCR y el log serie quedan como artefacto `secureboot-boot-test`.
+* **Instalación GPT:** `config/includes.chroot/etc/calamares/modules/partition.conf` fija `defaultPartitionTableType: gpt` y `requiredPartitionTableType: gpt`. La ISO solo trae GRUB para UEFI, así que el sistema instalado debe ser GPT con partición EFI; Calamares ya elige GPT en sistemas EFI, pero así queda explícito y se rechaza una instalación legacy/MBR.
 * **Releases:** solo al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256`, los certificados MOK y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`. Un push a `main` no crea releases; para publicar, crea y empuja un tag `v*`.
 
 ---

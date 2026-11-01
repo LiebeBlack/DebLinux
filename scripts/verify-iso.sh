@@ -47,12 +47,12 @@ echo "=== Verifying Secure Boot chain in ${ISO} ==="
 # ("'/MOK.crt'"), so strip them before comparing exact paths.
 ISO_PATHS="$(xorriso -indev "$ISO" -find / -maxdepth 3 2>/dev/null \
     | sed "s/^'//; s/'$//" || true)"
-for REQUIRED in /MOK.crt /MOK.der /live/MOK.der /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
+for REQUIRED in /MOK.crt /MOK.der /MOK.cer /live/MOK.der /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
     # Exact match: otherwise /MOK.der would also match /live/MOK.der.
     printf '%s\n' "$ISO_PATHS" | grep -qxF "$REQUIRED" \
         || fail "${REQUIRED} is missing from the ISO"
 done
-echo "OK: MOK certificate, MOK.der and EFI boot files are present."
+echo "OK: MOK certificate, MOK.der, MOK.cer and EFI boot files are present."
 
 # 2) El Torito UEFI boot entry must exist and use the GRUB EFI image
 BOOT_REPORT="$(xorriso -indev "$ISO" -report_el_torito plain 2>/dev/null || true)"

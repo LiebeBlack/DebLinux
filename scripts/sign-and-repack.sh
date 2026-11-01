@@ -10,6 +10,7 @@ FINAL_ISO="${2:-}"
 MOK_KEY="${3:-mok/mok.key}"
 MOK_CRT="${4:-mok/mok.crt}"
 MOK_DER="${5:-mok/mok.der}"
+MOK_CER="${6:-${MOK_DER%.der}.cer}"
 
 if [ -z "$ORIG_ISO" ] || [ -z "$FINAL_ISO" ]; then
     echo "Usage: $0 <input_original.iso> <output_final.iso> [mok.key] [mok.crt] [mok.der]"
@@ -30,6 +31,12 @@ fi
 if [ ! -f "$MOK_DER" ]; then
     echo "Converting $MOK_CRT to DER format ($MOK_DER)..."
     openssl x509 -in "$MOK_CRT" -outform DER -out "$MOK_DER"
+fi
+
+# .cer is the same DER certificate under the extension some firmware file
+# pickers filter on; derive it when an older keypair did not ship one.
+if [ ! -f "$MOK_CER" ]; then
+    cp "$MOK_DER" "$MOK_CER"
 fi
 
 # MokManager is the shim component that enrolls the MOK key, so the build host
@@ -153,6 +160,7 @@ fi
 # Inject MOK certificates to ISO root and /live so user can enroll them from UEFI MokManager
 XORRISO_ARGS+=("-update" "$MOK_CRT" "/MOK.crt")
 XORRISO_ARGS+=("-update" "$MOK_DER" "/MOK.der")
+XORRISO_ARGS+=("-update" "$MOK_CER" "/MOK.cer")
 XORRISO_ARGS+=("-update" "$MOK_DER" "/live/MOK.der")
 
 # Keep a copy of MokManager on the ISO9660 tree as well: some firmwares can only

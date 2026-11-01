@@ -8,6 +8,9 @@ set -euo pipefail
 KEY_FILE="${1:-mok/mok.key}"
 CRT_FILE="${2:-mok/mok.crt}"
 DER_FILE="${3:-mok/mok.der}"
+# .cer is the same DER-encoded certificate under the extension some firmware
+# file pickers (and Windows tooling) expect, so it is shipped as an alias.
+CER_FILE="${4:-mok/mok.cer}"
 
 OUT_DIR=$(dirname "$KEY_FILE")
 mkdir -p "$OUT_DIR"
@@ -50,12 +53,14 @@ openssl req -new -x509 -newkey rsa:2048 \
 
 echo "Converting PEM certificate to DER format for UEFI MokManager enrollment..."
 openssl x509 -in "$CRT_FILE" -outform DER -out "$DER_FILE"
+cp "$DER_FILE" "$CER_FILE"
 
 chmod 600 "$KEY_FILE"
-chmod 644 "$CRT_FILE" "$DER_FILE"
+chmod 644 "$CRT_FILE" "$DER_FILE" "$CER_FILE"
 
 echo "=== MOK Keypair Generated Successfully ==="
 echo "Private Key: $KEY_FILE"
 echo "Public CRT:  $CRT_FILE"
 echo "Public DER:  $DER_FILE"
+echo "Public CER:  $CER_FILE"
 openssl x509 -in "$CRT_FILE" -noout -subject -issuer -fingerprint -sha256
