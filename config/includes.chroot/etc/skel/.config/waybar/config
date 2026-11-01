@@ -1,0 +1,91 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 28,
+  "spacing": 6,
+  "modules-left": [
+    "custom/launcher",
+    "custom/installer",
+    "wlr/taskbar"
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "network",
+    "pulseaudio",
+    "backlight",
+    "cpu",
+    "memory",
+    "battery",
+    "tray",
+    "custom/power"
+  ],
+  "custom/launcher": {
+    "format": " Debian ",
+    "on-click": "fuzzel",
+    "tooltip": false
+  },
+  "custom/installer": {
+    "format": " Install ",
+    "on-click": "launch-calamares",
+    "tooltip-format": "Install Debian to internal disk"
+  },
+  "wlr/taskbar": {
+    "format": "{name}",
+    "on-click": "activate"
+  },
+  "clock": {
+    "interval": 1,
+    "format": "{:%Y-%m-%d  %H:%M:%S}",
+    "tooltip-format": "<tt><small>{calendar}</small></tt>"
+  },
+  "network": {
+    "format-wifi": "WIFI: {essid} ({signalStrength}%)",
+    "format-ethernet": "ETH: CONNECTED",
+    "format-disconnected": "NET: DISCONNECTED",
+    "tooltip-format": "{ifname} via {gwaddr}",
+    "on-click": "nm-connection-editor",
+    "interval": 5
+  },
+  "pulseaudio": {
+    "format": "VOL: {volume}%",
+    "format-muted": "VOL: MUTED",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-click-right": "pavucontrol",
+    "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"
+  },
+  "backlight": {
+    "format": "BRI: {percent}%",
+    "on-scroll-up": "brightnessctl set +2%",
+    "on-scroll-down": "brightnessctl set 2%-"
+  },
+  "cpu": {
+    "format": "CPU: {usage}%",
+    "interval": 2
+  },
+  "memory": {
+    "format": "RAM: {percentage}%",
+    "interval": 2
+  },
+  "battery": {
+    "states": {
+      "warning": 25,
+      "critical": 10
+    },
+    "format": "BAT: {capacity}%",
+    "format-charging": "CHG: {capacity}%",
+    "format-plugged": "AC: {capacity}%",
+    "interval": 10
+  },
+  "tray": {
+    "icon-size": 14,
+    "spacing": 6
+  },
+  "custom/power": {
+    "format": " [PWR] ",
+    "on-click": "fuzzel",
+    "tooltip": false
+  }
+}

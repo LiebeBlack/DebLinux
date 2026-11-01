@@ -1,0 +1,17 @@
+# ~/.config/labwc/environment
+# Environment variables set by Labwc for client processes
+
+XDG_CURRENT_DESKTOP=labwc
+XDG_SESSION_DESKTOP=labwc
+XDG_SESSION_TYPE=wayland
+
+GDK_BACKEND=wayland,x11,*
+QT_QPA_PLATFORM=wayland;xcb
+QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+SDL_VIDEODRIVER=wayland
+CLUTTER_BACKEND=wayland
+MOZ_ENABLE_WAYLAND=1
+_JAVA_AWT_WM_NONREPARENTING=1
+
+LIBVA_DRIVER_NAME=iHD
+MESA_LOADER_DRIVER_OVERRIDE=iris

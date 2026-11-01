@@ -1,0 +1,116 @@
+name: Build Debian 13 SecureBoot ISO for Lenovo 300e
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      debian_version:
+        description: 'Debian release distribution'
+        required: true
+        default: 'trixie'
+        type: choice
+        options:
+          - trixie
+          - bookworm
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, Sign and Repack ISO
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space on Runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            live-build \
+            debootstrap \
+            debian-archive-keyring \
+            isolinux \
+            syslinux-utils \
+            sbsigntool \
+            openssl \
+            xorriso \
+            dosfstools \
+            mtools \
+            grub-efi-amd64-bin \
+            grub-pc-bin \
+            shim-signed
+          # Guarantee debootstrap has trixie script mapping on Ubuntu runners
+          if [ ! -f /usr/share/debootstrap/scripts/trixie ] && [ -f /usr/share/debootstrap/scripts/sid ]; then
+            sudo ln -sf /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/trixie
+          fi
+
+      - name: Ensure Executable Permissions on Project Scripts
+        run: |
+          chmod +x auto/clean auto/config auto/build
+          chmod +x scripts/*.sh
+          find config/ -type f -name "*.sh" -exec chmod +x {} +
+          find config/hooks/ -type f -exec chmod +x {} +
+          find config/includes.chroot/usr/local/bin/ -type f -exec chmod +x {} + || true
+
+      - name: Generate Dynamic MOK Keypair
+        run: |
+          mkdir -p mok
+          ./scripts/generate-mok.sh mok/mok.key mok/mok.crt mok/mok.der
+
+      - name: Configure Live-Build for Debian amd64
+        env:
+          DEBIAN_VERSION: ${{ github.event.inputs.debian_version || 'trixie' }}
+        run: |
+          echo "Configuring live-build for Debian suite: ${DEBIAN_VERSION}"
+          sudo lb clean --purge
+          sudo DEBIAN_VERSION="${DEBIAN_VERSION}" lb config
+
+      - name: Execute Live-Build Compilation
+        run: |
+          echo "Starting Debian live-build compilation..."
+          sudo lb build 2>&1 | tee live-build.log
+          echo "Live-build compilation complete."
+
+      - name: Sign Kernel with MOK and Repack Bootable ISO
+        run: |
+          ORIG_ISO=$(ls live-image-amd64*.iso 2>/dev/null | head -n 1)
+          if [ -z "$ORIG_ISO" ] || [ ! -f "$ORIG_ISO" ]; then
+            echo "ERROR: No output ISO found from live-build!"
+            exit 1
+          fi
+          echo "Original generated ISO: ${ORIG_ISO}"
+          FINAL_ISO="debian-live-lenovo300e-n4120-signed.iso"
+          
+          # Execute the kernel extraction, signing, and repacking pipeline
+          sudo ./scripts/sign-and-repack.sh "$ORIG_ISO" "$FINAL_ISO" mok/mok.key mok/mok.crt mok/mok.der
+
+          # Verify final artifacts
+          ls -lh "$FINAL_ISO"
+          sha256sum "$FINAL_ISO" | tee "${FINAL_ISO}.sha256"
+
+      - name: Upload Repacked SecureBoot ISO and Checksum
+        uses: actions/upload-artifact@v5
+        with:
+          name: debian-13-lenovo-300e-signed-iso
+          path: |
+            debian-live-lenovo300e-n4120-signed.iso
+            debian-live-lenovo300e-n4120-signed.iso.sha256
+          retention-days: 14
+
+      - name: Upload Public MOK Certificates
+        uses: actions/upload-artifact@v5
+        with:
+          name: secureboot-mok-certificates
+          path: |
+            mok/mok.crt
+            mok/mok.der
+          retention-days: 14

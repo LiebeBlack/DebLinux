@@ -1,0 +1,76 @@
+#!/bin/sh
+# 0100-user-setup.hook.chroot
+# Runs inside chroot during Debian live-build image generation
+
+set -e
+
+echo "=== Configuring users, permissions and services in chroot ==="
+
+# 1. Ensure executable permissions on custom scripts
+for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /etc/profile.d/99-autostart-labwc.sh /etc/skel/.config/labwc/autostart; do
+    if [ -f "$SCRIPT" ]; then
+        chmod 755 "$SCRIPT"
+    fi
+done
+
+# 2. Ensure systemd getty override permissions
+if [ -d /etc/systemd/system/getty@tty1.service.d ]; then
+    chmod 755 /etc/systemd/system/getty@tty1.service.d
+    chmod 644 /etc/systemd/system/getty@tty1.service.d/autologin.conf
+fi
+
+# 3. Create seat and hardware groups if missing
+for GRP in _seat seat render video audio input plugdev netdev sudo; do
+    if ! getent group "$GRP" >/dev/null 2>&1; then
+        groupadd -r "$GRP" 2>/dev/null || true
+    fi
+done
+
+# 4. Guarantee pre-creation of 'live' user with default credentials
+if ! id -u live >/dev/null 2>&1; then
+    echo "Pre-creating live user account..."
+    useradd -m -s /bin/bash -G audio,video,input,render,_seat,seat,plugdev,netdev,sudo live || true
+else
+    usermod -aG audio,video,input,render,_seat,seat,plugdev,netdev,sudo live 2>/dev/null || true
+fi
+
+# Set default passwords (live / root)
+echo "live:live" | chpasswd
+echo "root:root" | chpasswd
+
+# Populate /home/live with skeleton config and fix ownership
+if [ -d /home/live ]; then
+    cp -rT /etc/skel /home/live 2>/dev/null || true
+    chown -R live:live /home/live 2>/dev/null || true
+fi
+
+# 5. Fix sudoers and polkit rules permissions
+if [ -f /etc/sudoers.d/live ]; then
+    chmod 0440 /etc/sudoers.d/live
+    chown root:root /etc/sudoers.d/live
+fi
+
+if [ -f /etc/polkit-1/rules.d/49-nopasswd_global.rules ]; then
+    chmod 0644 /etc/polkit-1/rules.d/49-nopasswd_global.rules
+    chown root:root /etc/polkit-1/rules.d/49-nopasswd_global.rules
+fi
+
+# 6. Enable seatd, NetworkManager and autologin setup services if installed
+if systemctl is-enabled seatd.service >/dev/null 2>&1 || [ -f /lib/systemd/system/seatd.service ]; then
+    systemctl enable seatd.service 2>/dev/null || true
+fi
+
+if systemctl is-enabled NetworkManager.service >/dev/null 2>&1 || [ -f /lib/systemd/system/NetworkManager.service ]; then
+    systemctl enable NetworkManager.service 2>/dev/null || true
+fi
+
+if [ -f /etc/systemd/system/setup-autologin.service ]; then
+    systemctl enable setup-autologin.service 2>/dev/null || true
+fi
+
+# 7. Hardware audio UCM2 profile verification
+if [ -d /usr/share/alsa/ucm2 ]; then
+    echo "ALSA UCM2 hardware profiles detected for Intel SOF."
+fi
+
+echo "=== User and service setup hook completed successfully ==="

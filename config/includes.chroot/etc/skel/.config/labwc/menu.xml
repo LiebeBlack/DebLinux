@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu>
+  <menu id="root-menu" label="Applications">
+    <item label="Install Debian to Disk (Calamares)">
+      <action name="Execute" command="launch-calamares" />
+    </item>
+    <separator />
+    <item label="Terminal (Foot)">
+      <action name="Execute" command="foot" />
+    </item>
+    <item label="File Manager (PCManFM)">
+      <action name="Execute" command="pcmanfm" />
+    </item>
+    <item label="Application Launcher (Fuzzel)">
+      <action name="Execute" command="fuzzel" />
+    </item>
+    <separator />
+    <item label="Audio Volume Control (Pavucontrol)">
+      <action name="Execute" command="pavucontrol" />
+    </item>
+    <item label="Network Connections (Wi-Fi)">
+      <action name="Execute" command="nm-connection-editor" />
+    </item>
+    <separator />
+    <item label="Reload Labwc Configuration">
+      <action name="Reconfigure" />
+    </item>
+    <item label="Exit Labwc">
+      <action name="Exit" />
+    </item>
+    <separator />
+    <item label="Reboot System">
+      <action name="Execute" command="systemctl reboot" />
+    </item>
+    <item label="Power Off">
+      <action name="Execute" command="systemctl poweroff" />
+    </item>
+  </menu>
+</openbox_menu>

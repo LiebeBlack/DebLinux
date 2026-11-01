@@ -1,0 +1,6 @@
+# Official Debian UEFI Secure Boot & MOK Management Tools
+shim-signed
+grub-efi-amd64-signed
+mokutil
+sbsigntool
+efibootmgr

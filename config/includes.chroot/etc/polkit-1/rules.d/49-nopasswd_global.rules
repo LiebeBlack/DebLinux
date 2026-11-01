@@ -1,0 +1,6 @@
+/* Allow members of live and sudo groups to execute administrative actions without password */
+polkit.addRule(function(action, subject) {
+    if (subject.isInGroup("sudo") || subject.isInGroup("live")) {
+        return polkit.Result.YES;
+    }
+});

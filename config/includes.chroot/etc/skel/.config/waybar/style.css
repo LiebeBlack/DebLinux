@@ -1,0 +1,99 @@
+* {
+    border: none;
+    border-radius: 0;
+    font-family: monospace;
+    font-size: 12px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: #1a1b26;
+    color: #c0caf5;
+    border-bottom: 2px solid #24283b;
+}
+
+#custom-launcher {
+    background-color: #7aa2f7;
+    color: #15161e;
+    font-weight: bold;
+    padding: 0 10px;
+    margin-right: 4px;
+}
+
+#custom-installer {
+    background-color: #9ece6a;
+    color: #15161e;
+    font-weight: bold;
+    padding: 0 8px;
+    margin-right: 4px;
+    border-radius: 3px;
+}
+
+#taskbar button {
+    color: #a9b1d6;
+    padding: 0 8px;
+}
+
+#taskbar button.active {
+    background-color: #24283b;
+    color: #7aa2f7;
+    border-bottom: 2px solid #7aa2f7;
+}
+
+#clock {
+    color: #bb9af7;
+    font-weight: bold;
+    padding: 0 10px;
+}
+
+#network,
+#pulseaudio,
+#backlight,
+#cpu,
+#memory,
+#battery,
+#tray,
+#custom-power {
+    padding: 0 8px;
+    margin: 2px 2px;
+    background-color: #24283b;
+    border-radius: 3px;
+}
+
+#network {
+    color: #9ece6a;
+}
+
+#pulseaudio {
+    color: #7dcfff;
+}
+
+#backlight {
+    color: #e0af68;
+}
+
+#cpu {
+    color: #9ece6a;
+}
+
+#memory {
+    color: #2ac3de;
+}
+
+#battery {
+    color: #7aa2f7;
+}
+
+#battery.warning {
+    color: #e0af68;
+}
+
+#battery.critical {
+    color: #f7768e;
+}
+
+#custom-power {
+    background-color: #f7768e;
+    color: #15161e;
+    font-weight: bold;
+}

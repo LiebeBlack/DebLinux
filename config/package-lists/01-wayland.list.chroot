@@ -1,0 +1,38 @@
+# Pila Ultraligera Wayland (wlroots / Labwc)
+labwc
+xwayland
+seatd
+libseat1
+foot
+fuzzel
+waybar
+swaybg
+wl-clipboard
+wlr-randr
+grim
+slurp
+
+# Fuentes del Sistema, Glifos y Temas de Iconos Completos
+fonts-dejavu-core
+fonts-liberation2
+fonts-font-awesome
+adwaita-icon-theme
+
+# Notificaciones y Gestión de Archivos
+mako-notifier
+pcmanfm
+gvfs
+udisks2
+
+# Gestión de Energía y Batería de Laptop
+upower
+power-profiles-daemon
+
+# Servidor de Audio PipeWire Completo
+pipewire
+pipewire-audio
+pipewire-pulse
+pipewire-alsa
+wireplumber
+alsa-utils
+pavucontrol

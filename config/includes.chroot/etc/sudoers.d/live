@@ -1,0 +1,2 @@
+# Sudoers configuration for Debian Live
+live ALL=(ALL:ALL) NOPASSWD: ALL

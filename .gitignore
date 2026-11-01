@@ -1,0 +1,17 @@
+# Live-build generated directories & cache
+.build/
+binary/
+chroot/
+cache/
+local/
+
+# ISO outputs
+*.iso
+*.iso.sha256
+*.hybrid.iso
+*.log
+
+# Sensitive private keys (keep in GitHub Secrets or CI ephemeral storage)
+mok/mok.key
+*.key
+*.pem

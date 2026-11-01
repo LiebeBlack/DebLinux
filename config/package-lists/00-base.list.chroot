@@ -1,0 +1,13 @@
+# Base System & Live Infrastructure
+live-boot
+live-config
+live-config-systemd
+systemd-sysv
+udev
+dbus
+dbus-user-session
+polkitd
+sudo
+ca-certificates
+locales
+kbd
