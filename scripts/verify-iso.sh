@@ -42,17 +42,32 @@ fail() {
 
 echo "=== Verifying Secure Boot chain in ${ISO} ==="
 
-# 1) MOK material and EFI boot files on the ISO filesystem
-# xorriso prints each matched path enclosed in hard single quotes
-# ("'/MOK.crt'"), so strip them before comparing exact paths.
-ISO_PATHS="$(xorriso -indev "$ISO" -find / -maxdepth 3 2>/dev/null \
-    | sed "s/^'//; s/'$//" || true)"
-for REQUIRED in /MOK.crt /MOK.der /MOK.cer /live/MOK.der /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
-    # Exact match: otherwise /MOK.der would also match /live/MOK.der.
-    printf '%s\n' "$ISO_PATHS" | grep -qxF "$REQUIRED" \
-        || fail "${REQUIRED} is missing from the ISO"
+# 1) MOK material and the EFI boot set on the ISO filesystem.
+# Directory listings are matched by basename and case-insensitively: the
+# ISO9660 tree may store BOOTX64.EFI and xorriso prints quoted paths.
+iso_has_file() {
+    local DIR="$1"
+    local BASE="$2"
+    local EXTRA="${3:-}"
+    local LISTING
+
+    LISTING="$(xorriso -indev "$ISO" -find "$DIR" $EXTRA -type f 2>/dev/null \
+        | sed "s/^'//; s/'$//" || true)"
+    printf '%s\n' "$LISTING" \
+        | awk -F/ -v b="$BASE" 'tolower($NF) == tolower(b) { found = 1 } END { exit !found }'
+}
+
+for REQUIRED in MOK.crt MOK.der MOK.cer; do
+    # -maxdepth 1 keeps this to the ISO root, so /live/MOK.der cannot satisfy it.
+    iso_has_file / "$REQUIRED" "-maxdepth 1" \
+        || fail "/${REQUIRED} is missing from the ISO"
 done
-echo "OK: MOK certificate, MOK.der, MOK.cer and EFI boot files are present."
+iso_has_file /live MOK.der || fail "/live/MOK.der is missing from the ISO"
+for REQUIRED in bootx64.efi grubx64.efi mmx64.efi grub.cfg; do
+    iso_has_file /EFI/boot "$REQUIRED" \
+        || fail "/EFI/boot/${REQUIRED} is missing from the ISO (firmware boot-from-file would fail)"
+done
+echo "OK: MOK certificate, MOK.der, MOK.cer and the EFI boot set are present."
 
 # 2) El Torito UEFI boot entry must exist and use the GRUB EFI image
 BOOT_REPORT="$(xorriso -indev "$ISO" -report_el_torito plain 2>/dev/null || true)"
@@ -65,9 +80,14 @@ echo "OK: El Torito UEFI boot entry present."
 # 2b) The hybrid MBR/GPT system area must still be there, otherwise the image
 #     only boots as a CD through El Torito and not from a USB stick, where UEFI
 #     firmware needs a partitioned device with a FAT EFI boot image.
-SYSAREA_REPORT="$(xorriso -indev "$ISO" -report_system_area plain 2>/dev/null || true)"
-printf '%s\n' "$SYSAREA_REPORT" | grep -qE '^[[:space:]]*GPT[[:space:]]*:' \
-    || fail "no GPT partition table in the ISO system area (USB UEFI boot would be lost)"
+# Check the protective GPT header signature at LBA 1 instead of parsing the
+# human-readable report, whose wording changes between xorriso versions.
+GPT_SIG="$( { dd if="$ISO" bs=512 skip=1 count=1 status=none 2>/dev/null | head -c 8; } || true)"
+if [ "$GPT_SIG" != "EFI PART" ]; then
+    echo "System area report for diagnosis:"
+    xorriso -indev "$ISO" -report_system_area plain 2>/dev/null || true
+    fail "no GPT partition table in the ISO system area (USB UEFI boot would be lost)"
+fi
 echo "OK: hybrid MBR/GPT system area present."
 
 # 3) The EFI boot image must carry shim, GRUB and MokManager. MokManager is

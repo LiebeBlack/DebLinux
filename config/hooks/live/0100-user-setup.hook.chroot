@@ -55,7 +55,8 @@ if [ -f /etc/polkit-1/rules.d/49-nopasswd_global.rules ]; then
     chown root:root /etc/polkit-1/rules.d/49-nopasswd_global.rules
 fi
 
-# 6. Enable seatd, NetworkManager, thermal and zram services if installed
+# 6. Enable seatd, NetworkManager, thermal, zram and the EFI removable-media
+#    fallback (installed system) if the unit is present
 for SERVICE in seatd NetworkManager thermald zramswap setup-autologin efi-removable-fallback; do
     if [ -f "/lib/systemd/system/${SERVICE}.service" ] \
         || [ -f "/usr/lib/systemd/system/${SERVICE}.service" ] \

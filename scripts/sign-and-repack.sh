@@ -1,7 +1,8 @@
 #!/bin/bash
 # scripts/sign-and-repack.sh
 # Extracts vmlinuz from Debian live ISO, signs it with MOK key using sbsign,
-# adds MokManager to the EFI boot image and repacks the hybrid UEFI ISO.
+# rebuilds the EFI boot image with MokManager, mirrors the EFI boot set into the
+# ISO9660 tree and repacks the hybrid UEFI ISO.
 
 set -euo pipefail
 
@@ -13,7 +14,7 @@ MOK_DER="${5:-mok/mok.der}"
 MOK_CER="${6:-${MOK_DER%.der}.cer}"
 
 if [ -z "$ORIG_ISO" ] || [ -z "$FINAL_ISO" ]; then
-    echo "Usage: $0 <input_original.iso> <output_final.iso> [mok.key] [mok.crt] [mok.der]"
+    echo "Usage: $0 <input_original.iso> <output_final.iso> [mok.key] [mok.crt] [mok.der] [mok.cer]"
     exit 1
 fi
 
@@ -163,10 +164,36 @@ XORRISO_ARGS+=("-update" "$MOK_DER" "/MOK.der")
 XORRISO_ARGS+=("-update" "$MOK_CER" "/MOK.cer")
 XORRISO_ARGS+=("-update" "$MOK_DER" "/live/MOK.der")
 
-# Keep a copy of MokManager on the ISO9660 tree as well: some firmwares can only
-# launch it there via their "boot from file" option.
-echo "Injecting MokManager (${MMX_SRC}) as /EFI/boot/mmx64.efi..."
-XORRISO_ARGS+=("-update" "$MMX_SRC" "/EFI/boot/mmx64.efi")
+echo "=== Step 4b: Mirroring the EFI boot set into the ISO9660 tree ==="
+# live-build only puts the EFI set inside efi.img, but a firmware "boot from
+# file" menu can only open files on the ISO9660 tree. Mirror the complete set
+# (shim, GRUB, its prefix config and MokManager) so that path is actually
+# bootable, and reuse the names already present in the tree instead of adding a
+# second file that only differs in case.
+EXISTING_EFI="$(xorriso -indev "$ORIG_ISO" -find /EFI/boot -type f 2>/dev/null \
+    | sed "s/^'//; s/'$//" || true)"
+
+efi_tree_name() {
+    local BASE="$1"
+    local MATCH
+
+    MATCH="$(printf '%s\n' "$EXISTING_EFI" \
+        | awk -F/ -v b="$BASE" 'tolower($NF) == b { print $NF; exit }')"
+    printf '%s\n' "${MATCH:-$BASE}"
+}
+
+ISO_EFI_STAGE="$WORK_DIR/iso-efi-stage"
+mkdir -p "$ISO_EFI_STAGE"
+mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/bootx64.efi "$ISO_EFI_STAGE/bootx64.efi"
+mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/grubx64.efi "$ISO_EFI_STAGE/grubx64.efi"
+mcopy -n -i "$EFI_IMG_NEW" ::/EFI/boot/mmx64.efi "$ISO_EFI_STAGE/mmx64.efi"
+mcopy -n -i "$EFI_IMG_NEW" ::/boot/grub/grub.cfg "$ISO_EFI_STAGE/grub.cfg"
+
+for EFI_NAME in bootx64.efi grubx64.efi mmx64.efi grub.cfg; do
+    EFI_DEST="$(efi_tree_name "$EFI_NAME")"
+    echo "Staging /EFI/boot/${EFI_DEST} for the ISO9660 tree..."
+    XORRISO_ARGS+=("-update" "$ISO_EFI_STAGE/$EFI_NAME" "/EFI/boot/$EFI_DEST")
+done
 
 echo "Staging rebuilt EFI boot image (with MokManager) as /boot/grub/efi.img..."
 XORRISO_ARGS+=("-update" "$EFI_IMG_NEW" "/boot/grub/efi.img")
@@ -186,15 +213,22 @@ if [ ! -f "$FINAL_ISO" ]; then
     exit 1
 fi
 
-# xorriso prints each matched path enclosed in hard single quotes
-# ("'/EFI/boot/bootx64.efi'"), so strip them before comparing exact paths.
-ISO_FILES="$(xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null \
-    | sed "s/^'//; s/'$//" || true)"
-for REQUIRED in /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
-    if ! printf '%s\n' "$ISO_FILES" | grep -qixF "$REQUIRED"; then
-        echo "ERROR: ${REQUIRED} missing from the final ISO (Secure Boot chain incomplete)."
+# Extract every mirrored file back out of the final ISO and compare it with the
+# staged copy. Extraction is checked by exact path, so the result does not
+# depend on how xorriso prints a directory listing.
+for EFI_NAME in bootx64.efi grubx64.efi mmx64.efi grub.cfg; do
+    EFI_DEST="$(efi_tree_name "$EFI_NAME")"
+    CHECK_FILE="$WORK_DIR/check-$EFI_NAME"
+    if ! xorriso -osirrox on -indev "$FINAL_ISO" \
+        -extract "/EFI/boot/${EFI_DEST}" "$CHECK_FILE" >/dev/null 2>&1; then
+        echo "ERROR: /EFI/boot/${EFI_DEST} missing from the final ISO (Secure Boot chain incomplete)."
         echo "Files present in /EFI/boot on the ISO:"
-        printf '%s\n' "$ISO_FILES"
+        xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null \
+            | sed "s/^'//; s/'$//" || true
+        exit 1
+    fi
+    if ! cmp -s "$ISO_EFI_STAGE/$EFI_NAME" "$CHECK_FILE"; then
+        echo "ERROR: /EFI/boot/${EFI_DEST} on the final ISO differs from the EFI boot image copy."
         exit 1
     fi
 done

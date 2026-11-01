@@ -51,32 +51,36 @@ for CANDIDATE in "${ESP}"/EFI/*/; do
     fi
 done
 
-SHIM=""
-if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/shimx64.efi" ]; then
-    SHIM="${VENDOR_DIR}/shimx64.efi"
-elif [ -f /usr/lib/shim/shimx64.efi.signed ]; then
-    SHIM="/usr/lib/shim/shimx64.efi.signed"
-else
+find_first() {
+    local CANDIDATE
+
+    for CANDIDATE in "$@"; do
+        if [ -f "$CANDIDATE" ]; then
+            printf '%s\n' "$CANDIDATE"
+            return 0
+        fi
+    done
+    return 1
+}
+
+SHIM="$(find_first "${VENDOR_DIR}/shimx64.efi" \
+    /usr/lib/shim/shimx64.efi.signed 2>/dev/null || true)"
+if [ -z "$SHIM" ]; then
     log "no shim on this system; leaving EFI/BOOT untouched"
     exit 0
 fi
 
-GRUB=""
-if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/grubx64.efi" ]; then
-    GRUB="${VENDOR_DIR}/grubx64.efi"
-elif [ -f /usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed ]; then
-    GRUB="/usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed"
-else
+GRUB="$(find_first "${VENDOR_DIR}/grubx64.efi" \
+    /usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed 2>/dev/null || true)"
+if [ -z "$GRUB" ]; then
     log "no signed GRUB on this system; leaving EFI/BOOT untouched"
     exit 0
 fi
 
-MM=""
-if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/mmx64.efi" ]; then
-    MM="${VENDOR_DIR}/mmx64.efi"
-elif [ -f /usr/lib/shim/mmx64.efi ]; then
-    MM="/usr/lib/shim/mmx64.efi"
-fi
+# Debian ships MokManager as mmx64.efi.signed; grub-install may have copied it
+# into the vendor directory under either name.
+MM="$(find_first "${VENDOR_DIR}/mmx64.efi" \
+    /usr/lib/shim/mmx64.efi /usr/lib/shim/mmx64.efi.signed 2>/dev/null || true)"
 
 # Reuse the config grub-install wrote (it pins the root UUID); otherwise build
 # the same three lines so the fallback does not depend on that file existing.

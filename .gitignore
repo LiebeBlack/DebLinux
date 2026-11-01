@@ -15,3 +15,6 @@ cache/
 mok/mok.key
 *.key
 *.pem
+
+# Build-time MOK material (public certs are attached by CI, never committed)
+/mok/
