@@ -4,7 +4,8 @@
 # Secure Boot rejection. This is a smoke test: it proves shim is accepted and
 # GRUB is not rejected, not that the desktop session is reached.
 #
-# Requires: qemu-system-x86, ovmf, socat, tesseract-ocr and netpbm.
+# Requires: qemu-system-x86, ovmf, socat, tesseract-ocr,
+# tesseract-ocr-eng and netpbm.
 
 set -euo pipefail
 
@@ -33,6 +34,13 @@ for TOOL in qemu-system-x86_64 socat tesseract pnmtopng; do
         exit 1
     fi
 done
+
+# Without the English traineddata tesseract exits non-zero and OCR is empty,
+# which would make the boot test pass without inspecting the screen.
+if ! tesseract --list-langs 2>&1 | grep -qx 'eng'; then
+    echo "ERROR: tesseract English language data not installed (tesseract-ocr-eng)"
+    exit 1
+fi
 
 WORK_DIR="$(mktemp -d /tmp/iso-boot-XXXXXX)"
 QEMU_PID=""
@@ -100,6 +108,10 @@ pnmtopng "$WORK_DIR/screen.ppm" > "$WORK_DIR/screen.png"
 TEXT="$(tesseract "$WORK_DIR/screen.png" stdout 2>/dev/null || true)"
 printf '%s\n' "$TEXT" > "$WORK_DIR/ocr.txt"
 
+if [ -z "$TEXT" ]; then
+    echo "WARNING: tesseract returned no text; inspect the screenshot artifact."
+fi
+
 echo "--- Boot screen text ---"
 printf '%s\n' "$TEXT"
 echo "------------------------"
@@ -114,4 +126,4 @@ if printf '%s\n' "$TEXT" | grep -qiE 'no bootable|boot failed'; then
     exit 1
 fi
 
-echo "OK: no Secure Boot violation detected."
+echo "OK: no Secure Boot rejection detected (shim/GRUB smoke test; the kernel MOK signature is checked by verify-iso.sh)."

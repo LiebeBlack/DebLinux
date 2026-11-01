@@ -131,14 +131,14 @@ Al flashear la ISO a una memoria USB (usando `dd` o `ventoy`):
 
 1. Conecta la memoria USB a la Lenovo 300e y enciende el equipo presionando `F12` para elegir el dispositivo de arranque.
 2. **Antes del primer arranque** hay que enrolar la clave MOK, porque el kernel va firmado con ella y el firmware aún no la conoce:
-   * Entra en el menú de arranque del firmware y usa la opción **"Boot from file"** / **"EFI Shell"** para ejecutar `EFI/boot/mmx64.efi` de la USB (la ISO trae `MOK.der`/`MOK.crt` en la raíz y `mmx64.efi` en `/EFI/boot`).
+   * Entra en el menú de arranque del firmware y usa la opción **"Boot from file"** / **"EFI Shell"** para ejecutar `EFI/boot/mmx64.efi` de la USB (la ISO trae `MOK.der`/`MOK.crt` en la raíz y `mmx64.efi` tanto dentro de `efi.img` como en `/EFI/boot`).
    * En MokManager selecciona **"Enroll key from disk"**.
-   * Navega a la partición de la USB y selecciona el archivo `MOK.der` o `MOK.crt`.
+   * Navega a la partición de la USB y selecciona `MOK.der` (DER; es lo que MokManager reconoce de forma fiable; el `.crt` es PEM).
    * Selecciona **"View Key"** para confirmar los datos (`Debian Secure Boot MOK`).
    * Selecciona **"Continue"** -> **"Yes"** -> confirma la inscripción y reinicia con **"Reboot"**.
 3. El equipo arrancará normalmente en Debian 13 bajo Secure Boot activado al 100%; el shim de Debian valida GRUB y GRUB valida el kernel con la clave MOK ya enrolada.
 
-> **Nota:** la clave MOK se genera nueva en cada compilación (no se guarda en el repositorio), así que cada ISO exige volver a enrolarla. Además, el `mmx64.efi` se inyecta en el árbol ISO9660; si el firmware de la 300e no lo muestra en **"Boot from file"**, puedes enrolar la clave desde el sistema ya instalado con `sudo mokutil --import MOK.der` y reiniciar.
+> **Nota:** la clave MOK se genera nueva en cada compilación (no se guarda en el repositorio), así que cada ISO exige volver a enrolarla. El `mmx64.efi` ya viene dentro de `efi.img` y el script añade una copia en `/EFI/boot` del árbol ISO9660; aun así, el explorador de archivos de muchos firmware solo lista particiones FAT y no el ISO9660. Si no te aparece, usa el **plan B**: desactiva Secure Boot temporalmente, arranca la ISO e instala; ya en el sistema instalado, copia `MOK.der` desde la raíz de la USB, instala `mokutil` si hace falta (`sudo apt install mokutil`) y ejecuta `sudo mokutil --import MOK.der`; reinicia, enrola la clave en MokManager y vuelve a activar Secure Boot.
 
 ---
 
@@ -151,11 +151,12 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 ## 🧪 CI, Reproducibilidad y Releases
 
 * **Snapshot de Debian:** la base de `debootstrap` se fija por defecto al snapshot `20261031T000000Z` (`DEBIAN_SNAPSHOT`). El resto de etapas usa `deb.debian.org` a propósito: live-build copia el mirror de chroot en el `sources.list` final, así que fijarlo dejaría la ISO y el sistema instalado apuntando a un snapshot sin actualizaciones de seguridad. Usa `DEBIAN_SNAPSHOT=live` para compilar contra el archivo actual.
+* **Solo Debian 13 (trixie):** las listas de paquetes usan los nombres `t64` de trixie (`libgtk-3-0t64`, `libasound2t64`, ...); el workflow ya no ofrece `bookworm` y `auto/config` falla con un mensaje claro si se intenta otra suite.
 * **Squashfs zstd:** `--chroot-squashfs-compression-type zstd` acelera la descompresión en el N4120.
 * **Herramientas verificadas:** los `.deb` de live-build, debootstrap y debian-archive-keyring que se instalan como root se comprueban con SHA256.
 * **Caché:** `cache/packages.bootstrap` y `cache/packages.chroot` (donde live-build guarda los `.deb`) se conservan entre runs con `actions/cache`, y `concurrency` cancela builds duplicados de la misma rama.
-* **Prueba de arranque:** en runs manuales y en tags `v*` se arranca la ISO con QEMU + OVMF Secure Boot y se falla si el firmware muestra un rechazo de firma. Las capturas y el OCR quedan como artefacto `secureboot-boot-test`.
-* **Releases:** al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256`, los certificados MOK y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`.
+* **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot y se detecta si el firmware rechaza shim/GRUB (se falla si aparece un rechazo de firma o un error de arranque). La firma del kernel se valida por separado en `verify-iso.sh` contra la MOK; OVMF arranca sin esa clave enrolada, así que esta prueba no llega a validar el kernel. Las capturas y el OCR quedan como artefacto `secureboot-boot-test`.
+* **Releases:** solo al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256`, los certificados MOK y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`. Un push a `main` no crea releases; para publicar, crea y empuja un tag `v*`.
 
 ---
 
@@ -194,6 +195,6 @@ sudo lb build
 ./scripts/verify-iso.sh debian-live-lenovo300e-signed.iso mok/mok.crt
 
 # 6. Opcional: probar el arranque con Secure Boot en QEMU
-sudo apt-get install -y qemu-system-x86 ovmf socat tesseract-ocr netpbm
+sudo apt-get install -y qemu-system-x86 ovmf socat tesseract-ocr tesseract-ocr-eng netpbm
 ./scripts/boot-test-iso.sh debian-live-lenovo300e-signed.iso
 ```

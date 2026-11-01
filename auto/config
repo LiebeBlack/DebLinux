@@ -3,6 +3,17 @@ set -e
 
 DISTRIBUTION="${DEBIAN_VERSION:-trixie}"
 
+# The package lists use trixie-only t64 names (libgtk-3-0t64,
+# libasound2t64, ...). Fail early instead of after a long bootstrapping run.
+case "${DISTRIBUTION}" in
+    trixie)
+        ;;
+    *)
+        echo "ERROR: this image targets Debian 13 (trixie); got '${DISTRIBUTION}'." >&2
+        exit 1
+        ;;
+esac
+
 # Pin the debootstrap base system to an immutable Debian snapshot, so a
 # rebuild does not silently pick up newer essential packages.
 # Set DEBIAN_SNAPSHOT="live" to build against the current archive instead.
@@ -25,12 +36,8 @@ case "${SNAPSHOT}" in
         ;;
 esac
 
-# Debian 13 (Trixie) is Debian Stable: updates and security repositories are fully active
-if [ "${DISTRIBUTION}" = "testing" ] || [ "${DISTRIBUTION}" = "sid" ] || [ "${DISTRIBUTION}" = "unstable" ]; then
-    UPDATES="false"
-else
-    UPDATES="true"
-fi
+# Debian 13 (Trixie) is Debian Stable: updates and security repositories are active.
+UPDATES="true"
 
 lb config noauto \
     --mode debian \

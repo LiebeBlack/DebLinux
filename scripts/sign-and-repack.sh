@@ -128,7 +128,7 @@ fi
 
 ISO_FILES="$(xorriso -indev "$FINAL_ISO" -find /EFI/boot -type f 2>/dev/null || true)"
 for REQUIRED in /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
-    if ! printf '%s\n' "$ISO_FILES" | grep -qiF "$REQUIRED"; then
+    if ! printf '%s\n' "$ISO_FILES" | grep -qixF "$REQUIRED"; then
         echo "ERROR: ${REQUIRED} missing from the final ISO (Secure Boot chain incomplete)."
         exit 1
     fi

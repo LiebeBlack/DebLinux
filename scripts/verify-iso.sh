@@ -43,7 +43,8 @@ echo "=== Verifying Secure Boot chain in ${ISO} ==="
 # 1) MOK material and EFI boot files on the ISO filesystem
 ISO_PATHS="$(xorriso -indev "$ISO" -find / -maxdepth 3 2>/dev/null || true)"
 for REQUIRED in /MOK.crt /MOK.der /live/MOK.der /EFI/boot/bootx64.efi /EFI/boot/mmx64.efi; do
-    printf '%s\n' "$ISO_PATHS" | grep -qF "$REQUIRED" \
+    # Exact match: otherwise /MOK.der would also match /live/MOK.der.
+    printf '%s\n' "$ISO_PATHS" | grep -qxF "$REQUIRED" \
         || fail "${REQUIRED} is missing from the ISO"
 done
 echo "OK: MOK certificate, MOK.der and EFI boot files are present."
@@ -90,15 +91,15 @@ xorriso -osirrox on -indev "$ISO" -extract /live "$WORK_DIR/live" >/dev/null 2>&
 mapfile -t KERNELS < <(find "$WORK_DIR" -type f -name 'vmlinuz*' | sort)
 [ "${#KERNELS[@]}" -gt 0 ] || fail "no kernel image found in /live"
 
-UNVERSIONED=0
+HAVE_VMLINUZ=0
 for KERNEL in "${KERNELS[@]}"; do
     sbverify --cert "$MOK_CRT" "$KERNEL" >/dev/null 2>&1 \
         || fail "kernel signature does not verify against the MOK certificate: $(basename "$KERNEL")"
     if [ "$(basename "$KERNEL")" = 'vmlinuz' ]; then
-        UNVERSIONED=1
+        HAVE_VMLINUZ=1
     fi
 done
-[ "$UNVERSIONED" -eq 1 ] || fail "/live/vmlinuz is missing or was not signed"
+[ "$HAVE_VMLINUZ" -eq 1 ] || fail "/live/vmlinuz is missing or was not signed"
 echo "OK: ${#KERNELS[@]} kernel image(s) signed by the MOK key."
 
 echo "=== ISO verification passed ==="
