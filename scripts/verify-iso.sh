@@ -3,8 +3,10 @@
 # Verifies that the signed ISO is a complete UEFI Secure Boot artifact before
 # it gets published as a build artifact:
 #   1. MOK enrollment material + EFI boot files on the ISO9660 tree
-#   2. El Torito UEFI boot entry pointing to the GRUB EFI image
-#   3. shim (BOOTX64.EFI) and GRUB (GRUBX64.EFI) inside that EFI image
+#   2. El Torito UEFI boot entry pointing to the GRUB EFI image, and the
+#      hybrid MBR/GPT system area that makes the ISO bootable from USB
+#   3. shim (BOOTX64.EFI), GRUB (GRUBX64.EFI) and MokManager (MMX64.EFI)
+#      inside that EFI image
 #   4. shim signed by the Microsoft UEFI CA and GRUB signed by Debian
 #   5. kernel image(s) signed by the generated MOK certificate
 
@@ -60,7 +62,17 @@ printf '%s\n' "$BOOT_REPORT" | grep -q '/boot/grub/efi.img' \
     || fail "UEFI boot entry does not point to /boot/grub/efi.img"
 echo "OK: El Torito UEFI boot entry present."
 
-# 3) The EFI boot image must carry shim and GRUB
+# 2b) The hybrid MBR/GPT system area must still be there, otherwise the image
+#     only boots as a CD through El Torito and not from a USB stick, where UEFI
+#     firmware needs a partitioned device with a FAT EFI boot image.
+SYSAREA_REPORT="$(xorriso -indev "$ISO" -report_system_area plain 2>/dev/null || true)"
+printf '%s\n' "$SYSAREA_REPORT" | grep -qE '^[[:space:]]*GPT[[:space:]]*:' \
+    || fail "no GPT partition table in the ISO system area (USB UEFI boot would be lost)"
+echo "OK: hybrid MBR/GPT system area present."
+
+# 3) The EFI boot image must carry shim, GRUB and MokManager. MokManager is
+#    mandatory: shim looks for mmx64.efi on the same FAT filesystem it was
+#    loaded from, so it cannot be provided by the ISO9660 tree alone.
 xorriso -osirrox on -indev "$ISO" -extract /boot/grub/efi.img "$WORK_DIR/efi.img" >/dev/null 2>&1 \
     || fail "cannot extract /boot/grub/efi.img"
 EFI_CONTENT="$(mdir -i "$WORK_DIR/efi.img" ::/EFI/boot 2>/dev/null || true)"
@@ -68,7 +80,9 @@ printf '%s\n' "$EFI_CONTENT" | grep -qi 'BOOTX64' \
     || fail "shim (BOOTX64.EFI) missing from the EFI boot image"
 printf '%s\n' "$EFI_CONTENT" | grep -qi 'GRUBX64' \
     || fail "GRUB (GRUBX64.EFI) missing from the EFI boot image"
-echo "OK: EFI boot image contains shim + GRUB."
+printf '%s\n' "$EFI_CONTENT" | grep -qi 'MMX64' \
+    || fail "MokManager (MMX64.EFI) missing from the EFI boot image; MOK enrollment from the boot medium would be impossible"
+echo "OK: EFI boot image contains shim + GRUB + MokManager."
 
 # 4) The boot volume itself must carry a trusted chain: shim is signed by
 #    Microsoft (trusted by the firmware) and GRUB by Debian (trusted by shim).

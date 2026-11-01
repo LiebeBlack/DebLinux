@@ -122,8 +122,9 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 1. **Generación de Claves:** Durante el flujo de CI, se genera un par de claves X.509 RSA 2048 (`mok.key`, `mok.crt`, `mok.der`) con extensiones específicas de firma de código (`extendedKeyUsage = codeSigning, 1.3.6.1.4.1.2312.16.1.2`).
 2. **Firma del Kernel:** Se extrae el ejecutable PE/COFF del kernel (`vmlinuz`) del sistema compilado y se firma usando `sbsign --key mok.key --cert mok.crt`.
 3. **Verificación:** Se valida la firma con `sbverify --cert mok.crt`.
-4. **Inyección en ISO:** Con `xorriso -boot_image any keep`, se reemplaza el kernel en `/live/vmlinuz` y se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`).
-5. **Verificación de la cadena completa:** `scripts/verify-iso.sh` comprueba que shim esté firmado por Microsoft, que GRUB lo esté por Debian (esto último leyendo `GRUBX64.EFI` dentro de `efi.img`, que es lo que arranca el firmware) y que todos los kernels verifiquen contra el certificado MOK.
+4. **Inyección de MokManager:** se reconstruye `efi.img` (la imagen FAT que arranca el firmware) para añadir `mmx64.efi`, porque shim solo busca MokManager en el mismo sistema de ficheros desde el que se cargó y live-build no lo incluye cuando hay GRUB firmado. También se deja una copia en `/EFI/boot` del árbol ISO9660 para el arranque manual por fichero.
+5. **Inyección en ISO:** se reemplaza el kernel en `/live/vmlinuz`, se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`) y la nueva `efi.img`. Con `xorriso -boot_image any replay` se regenera la entrada El Torito y el área de sistema híbrida MBR/GPT a partir del árbol, de modo que el contenido nuevo de `efi.img` sea realmente la imagen de arranque.
+6. **Verificación de la cadena completa:** `scripts/verify-iso.sh` comprueba que shim esté firmado por Microsoft, que GRUB lo esté por Debian (leyendo `GRUBX64.EFI` dentro de `efi.img`, que es lo que arranca el firmware), que `MMX64.EFI` esté dentro de `efi.img`, que el área GPT siga presente para el arranque por USB y que todos los kernels verifiquen contra el certificado MOK.
 
 ### Cómo Enrolar la Clave MOK en la Lenovo 300e:
 
@@ -138,7 +139,7 @@ Al flashear la ISO a una memoria USB (usando `dd` o `ventoy`):
    * Selecciona **"Continue"** -> **"Yes"** -> confirma la inscripción y reinicia con **"Reboot"**.
 3. El equipo arrancará normalmente en Debian 13 bajo Secure Boot activado al 100%; el shim de Debian valida GRUB y GRUB valida el kernel con la clave MOK ya enrolada.
 
-> **Nota:** la clave MOK se genera nueva en cada compilación (no se guarda en el repositorio), así que cada ISO exige volver a enrolarla. El `mmx64.efi` ya viene dentro de `efi.img` y el script añade una copia en `/EFI/boot` del árbol ISO9660; aun así, el explorador de archivos de muchos firmware solo lista particiones FAT y no el ISO9660. Si no te aparece, usa el **plan B**: desactiva Secure Boot temporalmente, arranca la ISO e instala; ya en el sistema instalado, copia `MOK.der` desde la raíz de la USB, instala `mokutil` si hace falta (`sudo apt install mokutil`) y ejecuta `sudo mokutil --import MOK.der`; reinicia, enrola la clave en MokManager y vuelve a activar Secure Boot.
+> **Nota:** la clave MOK se genera nueva en cada compilación (no se guarda en el repositorio), así que cada ISO exige volver a enrolarla. `scripts/sign-and-repack.sh` reconstruye `efi.img` para meter `mmx64.efi` dentro (shim solo lo lanza desde ahí) y además deja una copia en `/EFI/boot` del árbol ISO9660; aun así, el explorador de archivos de muchos firmware solo lista particiones FAT y no el ISO9660. Si no te aparece, usa el **plan B**: desactiva Secure Boot temporalmente, arranca la ISO e instala; ya en el sistema instalado, copia `MOK.der` desde la raíz de la USB, instala `mokutil` si hace falta (`sudo apt install mokutil`) y ejecuta `sudo mokutil --import MOK.der`; reinicia, enrola la clave en MokManager y vuelve a activar Secure Boot.
 
 ---
 

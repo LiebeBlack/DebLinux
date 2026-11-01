@@ -1,8 +1,10 @@
 #!/bin/bash
 # scripts/boot-test-iso.sh
-# Boots the ISO with OVMF Secure Boot enabled and fails if the firmware shows a
-# Secure Boot rejection. This is a smoke test: it proves shim is accepted and
-# GRUB is not rejected, not that the desktop session is reached.
+# Boots the ISO with OVMF Secure Boot enabled and fails if the firmware, shim or
+# GRUB reports a Secure Boot rejection. This is only a smoke test: it detects
+# rejection screens, it does not prove that the kernel loaded or that the
+# desktop session is reached (the signature chain itself is checked by
+# scripts/verify-iso.sh).
 #
 # Requires: qemu-system-x86, ovmf, socat, tesseract-ocr,
 # tesseract-ocr-eng and netpbm.
@@ -116,8 +118,11 @@ echo "--- Boot screen text ---"
 printf '%s\n' "$TEXT"
 echo "------------------------"
 
-if printf '%s\n' "$TEXT" | grep -qiE 'security violation|verification failed|access denied|not authorized'; then
-    echo "ERROR: firmware reported a Secure Boot rejection"
+# Covers the firmware's own wording, shim's "Verification failed: (0x1A)
+# Security Violation" and GRUB's shim_lock refusals (invalid/bad signature,
+# prohibited by secure boot policy).
+if printf '%s\n' "$TEXT" | grep -qiE 'security violation|verification failed|access denied|not authorized|invalid signature|bad signature|prohibited by secure boot'; then
+    echo "ERROR: firmware/bootloader reported a Secure Boot rejection"
     exit 1
 fi
 
