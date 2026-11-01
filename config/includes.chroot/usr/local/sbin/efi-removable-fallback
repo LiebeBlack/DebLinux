@@ -1,0 +1,153 @@
+#!/bin/bash
+# /usr/local/sbin/efi-removable-fallback
+#
+# Installs the UEFI removable-media boot path on the *installed* system, the
+# same layout a USB stick uses, so the machine still boots under Secure Boot
+# when the firmware does not register (or later forgets) the NVRAM entry that
+# grub-install wrote:
+#
+#   EFI/BOOT/BOOTX64.EFI  shim          (Microsoft UEFI CA signed)
+#   EFI/BOOT/grubx64.efi  GRUB          (Debian signed, trusted by shim)
+#   EFI/BOOT/grub.cfg     search UUID + chainload /boot/grub/grub.cfg
+#   EFI/BOOT/mmx64.efi    MokManager    (MOK enrolment from the fallback path)
+#
+# Calamares' installEFIFallback copies the Debian-signed GRUB to BOOTX64.EFI,
+# which firmware rejects under Secure Boot because only Microsoft's CA is
+# trusted there; putting shim in that slot keeps the chain trusted and lets
+# the fallback boot exactly like the primary entry.
+#
+# The script is idempotent (it only rewrites files whose content differs), it
+# never touches a foreign bootloader that owns EFI/BOOT, and it never fails the
+# boot when the ESP is missing, read-only or not ours.
+#
+# Runs from efi-removable-fallback.service. On the live session /boot/efi is
+# not a mount point, so it exits immediately.
+
+set -euo pipefail
+
+ESP="/boot/efi"
+BOOT_DIR="${ESP}/EFI/BOOT"
+LOG_TAG="efi-removable-fallback"
+
+log() { printf '%s: %s\n' "$LOG_TAG" "$*"; }
+
+# Only an installed system mounts an ESP at /boot/efi; live-boot does not.
+mountpoint -q "$ESP" || exit 0
+[ -d "${ESP}/EFI" ] || exit 0
+
+# grub-install writes the trusted chain to /boot/efi/EFI/<id>/. Calamares takes
+# that id from the branding ("Debian"; older images use "debian"), so discover
+# the directory instead of assuming a name.
+VENDOR_DIR=""
+for CANDIDATE in "${ESP}"/EFI/*/; do
+    CANDIDATE="${CANDIDATE%/}"
+    [ -d "$CANDIDATE" ] || continue
+    case "${CANDIDATE##*/}" in
+        BOOT|boot) continue ;;
+    esac
+    if [ -f "${CANDIDATE}/shimx64.efi" ] || [ -f "${CANDIDATE}/grubx64.efi" ]; then
+        VENDOR_DIR="$CANDIDATE"
+        break
+    fi
+done
+
+SHIM=""
+if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/shimx64.efi" ]; then
+    SHIM="${VENDOR_DIR}/shimx64.efi"
+elif [ -f /usr/lib/shim/shimx64.efi.signed ]; then
+    SHIM="/usr/lib/shim/shimx64.efi.signed"
+else
+    log "no shim on this system; leaving EFI/BOOT untouched"
+    exit 0
+fi
+
+GRUB=""
+if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/grubx64.efi" ]; then
+    GRUB="${VENDOR_DIR}/grubx64.efi"
+elif [ -f /usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed ]; then
+    GRUB="/usr/lib/grub/x86_64-efi-signed/grubx64.efi.signed"
+else
+    log "no signed GRUB on this system; leaving EFI/BOOT untouched"
+    exit 0
+fi
+
+MM=""
+if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/mmx64.efi" ]; then
+    MM="${VENDOR_DIR}/mmx64.efi"
+elif [ -f /usr/lib/shim/mmx64.efi ]; then
+    MM="/usr/lib/shim/mmx64.efi"
+fi
+
+# Reuse the config grub-install wrote (it pins the root UUID); otherwise build
+# the same three lines so the fallback does not depend on that file existing.
+TEMP_CFG=""
+if [ -n "$VENDOR_DIR" ] && [ -f "${VENDOR_DIR}/grub.cfg" ]; then
+    GRUB_CFG="${VENDOR_DIR}/grub.cfg"
+else
+    ROOT_UUID="$(grub-probe --target=fs_uuid / 2>/dev/null || true)"
+    if [ -z "$ROOT_UUID" ]; then
+        log "cannot determine the root filesystem UUID; leaving EFI/BOOT untouched"
+        exit 0
+    fi
+    TEMP_CFG="$(mktemp /tmp/efi-fallback-grub-XXXXXX.cfg)"
+    GRUB_CFG="$TEMP_CFG"
+    printf 'search --fs-uuid --set=root %s\nset prefix=($root)/boot/grub\nconfigfile $prefix/grub.cfg\n' \
+        "$ROOT_UUID" > "$GRUB_CFG"
+fi
+
+cleanup() {
+    [ -n "$TEMP_CFG" ] && rm -f "$TEMP_CFG"
+    return 0
+}
+trap cleanup EXIT
+
+# Respect a bootloader that already owns the removable path (another OS), but
+# replace our own leftovers: the GRUB copy that Calamares leaves there.
+if [ -e "${BOOT_DIR}/BOOTX64.EFI" ] \
+    && ! cmp -s "${BOOT_DIR}/BOOTX64.EFI" "$SHIM" \
+    && ! cmp -s "${BOOT_DIR}/BOOTX64.EFI" "$GRUB"; then
+    log "EFI/BOOT/BOOTX64.EFI belongs to another bootloader; not overwriting"
+    exit 0
+fi
+
+if ! touch "${ESP}/.efi-fallback-probe" 2>/dev/null; then
+    if ! mount -o remount,rw "$ESP" 2>/dev/null; then
+        log "ESP is not writable; skipping"
+        exit 0
+    fi
+fi
+rm -f "${ESP}/.efi-fallback-probe"
+
+CHANGED=0
+install_if_changed() {
+    local SRC="$1"
+    local DST="$2"
+
+    if [ -f "$DST" ] && cmp -s "$SRC" "$DST"; then
+        return 0
+    fi
+    install -m 0644 "$SRC" "$DST"
+    CHANGED=1
+}
+
+mkdir -p "$BOOT_DIR"
+install_if_changed "$SHIM" "${BOOT_DIR}/BOOTX64.EFI"
+install_if_changed "$GRUB" "${BOOT_DIR}/grubx64.efi"
+install_if_changed "$GRUB_CFG" "${BOOT_DIR}/grub.cfg"
+if [ -n "$MM" ]; then
+    install_if_changed "$MM" "${BOOT_DIR}/mmx64.efi"
+else
+    log "MokManager (mmx64.efi) not available; fallback boots but cannot enrol keys"
+fi
+
+if [ "$CHANGED" -eq 0 ]; then
+    exit 0
+fi
+
+sync
+if ! cmp -s "$SHIM" "${BOOT_DIR}/BOOTX64.EFI"; then
+    log "verification failed: EFI/BOOT/BOOTX64.EFI does not match shim"
+    exit 1
+fi
+
+log "removable-media fallback installed: shim + MokManager + Debian-signed GRUB at EFI/BOOT"

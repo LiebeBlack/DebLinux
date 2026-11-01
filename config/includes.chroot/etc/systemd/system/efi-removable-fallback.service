@@ -1,0 +1,18 @@
+[Unit]
+Description=Install UEFI removable-media fallback (shim at EFI/BOOT)
+Documentation=file:/usr/local/sbin/efi-removable-fallback
+After=local-fs.target
+ConditionPathIsMountPoint=/boot/efi
+ConditionPathIsDirectory=/boot/efi/EFI
+ConditionPathExists=/usr/local/sbin/efi-removable-fallback
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/efi-removable-fallback
+# Nothing here may hold up or fail the boot: a broken ESP is reported in the
+# journal, but booting continues with the NVRAM entry grub-install created.
+RemainAfterExit=yes
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

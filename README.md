@@ -55,8 +55,13 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 │   │   └── 06-desktop-extras.list.chroot # swayidle/swaylock, zram, thermald, runtime Firefox
 │   ├── includes.chroot/
 │   │   ├── etc/
-│   │   │   ├── systemd/system/getty@tty1.service.d/
-│   │   │   │   └── autologin.conf      # Autologin en TTY1 para el usuario live
+│   │   │   ├── calamares/modules/
+│   │   │   │   └── partition.conf      # Instalación obligatoria en tabla GPT (UEFI)
+│   │   │   ├── systemd/system/
+│   │   │   │   ├── getty@tty1.service.d/
+│   │   │   │   │   └── autologin.conf  # Autologin en TTY1 para el usuario live
+│   │   │   │   ├── efi-removable-fallback.service # Ruta de arranque tipo USB en el sistema instalado
+│   │   │   │   └── setup-autologin.service # Ajusta el autologin al usuario instalado
 │   │   │   ├── profile.d/
 │   │   │   │   └── 99-autostart-labwc.sh # Detección TTY1 y llamada a launch-labwc
 │   │   │   ├── live/config.conf.d/
@@ -83,6 +88,8 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 │   │   ├── usr/local/bin/
 │   │   │   ├── launch-labwc            # Script ejecutable de lanzamiento y entorno
 │   │   │   └── launch-calamares        # Lanzador del instalador con pkexec/sudo
+│   │   ├── usr/local/sbin/
+│   │   │   └── efi-removable-fallback  # Shim + MokManager en EFI/BOOT del sistema instalado
 │   │   └── usr/share/applications/
 │   │       └── firefox-nightly.desktop # Entrada de escritorio de Firefox Nightly
 │   └── hooks/
@@ -125,6 +132,27 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 4. **Inyección de MokManager:** se reconstruye `efi.img` (la imagen FAT que arranca el firmware) para añadir `mmx64.efi`, porque shim solo busca MokManager en el mismo sistema de ficheros desde el que se cargó y live-build no lo incluye cuando hay GRUB firmado. También se deja una copia en `/EFI/boot` del árbol ISO9660 para el arranque manual por fichero.
 5. **Inyección en ISO:** se reemplaza el kernel en `/live/vmlinuz`, se inyectan los certificados públicos en la raíz de la ISO (`/MOK.crt`, `/MOK.der`, `/MOK.cer`) y la nueva `efi.img`. Con `xorriso -boot_image any replay` se regenera la entrada El Torito y el área de sistema híbrida MBR/GPT a partir del árbol, de modo que el contenido nuevo de `efi.img` sea realmente la imagen de arranque.
 6. **Verificación de la cadena completa:** `scripts/verify-iso.sh` comprueba que shim esté firmado por Microsoft, que GRUB lo esté por Debian (leyendo `GRUBX64.EFI` dentro de `efi.img`, que es lo que arranca el firmware), que `MMX64.EFI` esté dentro de `efi.img`, que el área GPT siga presente para el arranque por USB y que todos los kernels verifiquen contra el certificado MOK.
+
+### Arranque del Sistema Instalado (ruta tipo USB)
+
+Al instalar, `grub-install` de Debian detecta que la sesión arrancó con Secure Boot y coloca la cadena firmada en la ESP (`EFI/<id>/shimx64.efi` firmado por Microsoft, `EFI/<id>/grubx64.efi` firmado por Debian y `EFI/<id>/grub.cfg`), además de registrar la entrada NVRAM con ese id apuntando a shim. El id lo toma Calamares del branding (`Debian`; instalaciones antiguas usan `debian`, que en FAT es el mismo directorio). Esa es la ruta principal y no necesita MOK: el kernel instalado ya viene firmado por Debian.
+
+Como respaldo, `efi-removable-fallback.service` replica esa cadena en la ruta de medios extraíbles, igual que un USB:
+
+| Archivo en `/boot/efi/EFI/BOOT` | Origen | Firmante |
+| :--- | :--- | :--- |
+| `BOOTX64.EFI` | `EFI/<id>/shimx64.efi` | Microsoft UEFI CA |
+| `grubx64.efi` | `EFI/<id>/grubx64.efi` | Debian |
+| `grub.cfg` | `EFI/<id>/grub.cfg` | — |
+| `mmx64.efi` | `EFI/<id>/mmx64.efi` | Microsoft |
+
+El script localiza `<id>` recorriendo `EFI/*` en busca de shim (no asume el nombre), reutiliza el `grub.cfg` de `grub-install` (que fija el UUID de la raíz) y, si no existe, lo sintetiza con `grub-probe` para no depender de ese archivo.
+
+Esto cubre el caso en que el firmware no guarde la entrada NVRAM o la pierda (reset de CMOS, placa que solo arranca `EFI/BOOT/BOOTX64.EFI`) y corrige el fallback que deja Calamares, que copia el GRUB firmado por Debian en el hueco de `BOOTX64.EFI`: el firmware lo rechaza bajo Secure Boot porque ahí solo confía en la CA de Microsoft. Con shim en ese hueco la cadena vuelve a ser de confianza y MokManager queda al lado, disponible si algún día hace falta enrolar una clave desde esa ruta.
+
+El servicio es idempotente (solo reescribe archivos cuyo contenido cambie), no toca un `EFI/BOOT/BOOTX64.EFI` que pertenezca a otro gestor de arranque y no hace nada en la sesión live, donde `/boot/efi` no está montado. Si la ESP no se puede escribir, lo anota en el journal y el arranque continúa por la entrada NVRAM.
+
+Se ejecuta en cada arranque del sistema instalado, así que el respaldo se regenera solo si alguien borra la NVRAM o el propio `EFI/BOOT`. Lo que **no** puede cubrir es un firmware que ignore la NVRAM desde el primer arranque: ahí hay que arrancar una vez desde fichero (`EFI/<id>/shimx64.efi`) y el servicio deja la ruta tipo USB lista para los siguientes.
 
 ### Cómo Enrolar la Clave MOK en la Lenovo 300e:
 
