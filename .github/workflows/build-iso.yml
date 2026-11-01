@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build, Sign and Repack ISO
+    name: Build and Repack UEFI ISO
     runs-on: ubuntu-latest
     # Needed to publish the ISO as a GitHub Release for v* tags.
     permissions:
@@ -48,12 +48,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             sbsigntool \
-            openssl \
             xorriso \
             dosfstools \
             mtools \
-            zstd \
-            shim-signed
+            zstd
 
           # ubuntu-latest only ships live-build 3.0~a57 (2013) and its
           # matching debootstrap, which predate trixie and reject current
@@ -86,11 +84,6 @@ jobs:
           find config/ -type f -name "*.sh" -exec chmod +x {} +
           find config/hooks/ -type f -exec chmod +x {} +
           find config/includes.chroot/usr/local/bin/ config/includes.chroot/usr/local/sbin/ -type f -exec chmod +x {} + || true
-
-      - name: Generate Dynamic MOK Keypair
-        run: |
-          mkdir -p mok
-          ./scripts/generate-mok.sh mok/mok.key mok/mok.crt mok/mok.der
 
       - name: Configure Live-Build for Debian amd64
         env:
@@ -131,7 +124,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Sign Kernel with MOK and Repack Bootable ISO
+      - name: Repack UEFI Bootable ISO
         run: |
           ORIG_ISO=$(ls live-image-amd64*.iso 2>/dev/null | head -n 1)
           if [ -z "$ORIG_ISO" ] || [ ! -f "$ORIG_ISO" ]; then
@@ -139,26 +132,22 @@ jobs:
             exit 1
           fi
           echo "Original generated ISO: ${ORIG_ISO}"
-          FINAL_ISO="debian-live-lenovo300e-n4120-signed.iso"
-          
-          # Execute the kernel extraction, signing, and repacking pipeline.
-          # Run as the unprivileged runner user: signing and repacking only need
-          # read access to the ISO. Running it under sudo leaves the output ISO
-          # and checksum owned by root, which makes the checksum step below fail
-          # with "tee: ... Permission denied".
-          ./scripts/sign-and-repack.sh "$ORIG_ISO" "$FINAL_ISO" mok/mok.key mok/mok.crt mok/mok.der
+          FINAL_ISO="debian-live-lenovo300e-uefi.iso"
 
-          # Verify final artifacts (ownership must stay with the runner user so
-          # the checksum file can be written and uploaded)
+          # Repack the tree with a valid GPT + protective MBR. The kernel is
+          # the Debian-signed image from linux-image; no MOK/sbsign step runs.
+          # Run as the unprivileged runner user: repacking only needs read
+          # access to the ISO, and root-owned outputs would break the checksum
+          # and artifact upload.
+          ./scripts/repack-iso.sh "$ORIG_ISO" "$FINAL_ISO"
+
           ls -lh "$FINAL_ISO"
           sha256sum "$FINAL_ISO" | tee "${FINAL_ISO}.sha256"
 
-      - name: Verify Signed Secure Boot ISO
+      - name: Verify UEFI Secure Boot ISO
         run: |
           chmod +x scripts/verify-iso.sh
-          ./scripts/verify-iso.sh \
-            debian-live-lenovo300e-n4120-signed.iso \
-            mok/mok.crt
+          ./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
 
       - name: Install Boot Test Dependencies
         # Push and tag runs always boot-test; manual runs can opt out.
@@ -173,15 +162,18 @@ jobs:
             tesseract-ocr-eng \
             netpbm
 
-      # Boots the signed ISO under OVMF Secure Boot and waits for the live
+      # Boots the UEFI ISO under OVMF Secure Boot and waits for the live
       # system to reach userspace (login prompt on the serial console), so a
       # rejected kernel or a broken initramfs fails the build instead of just
       # showing a different screen.
-      - name: Boot Test Signed ISO under OVMF Secure Boot
+      - name: Boot Test UEFI ISO under OVMF Secure Boot
         if: success() && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_boot_test == 'true')
+        env:
+          # The target boots from a USB stick; exercise the GPT ESP path by default.
+          BOOT_MEDIA: usb
         run: |
           chmod +x scripts/boot-test-iso.sh
-          ./scripts/boot-test-iso.sh debian-live-lenovo300e-n4120-signed.iso
+          ./scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso
 
       - name: Upload Boot Test Evidence
         if: always() && hashFiles('boot-test-artifacts/**') != ''
@@ -191,33 +183,21 @@ jobs:
           path: boot-test-artifacts
           retention-days: 14
 
-      # Run even when verification fails: the signed ISO costs a full
+      # Run even when verification fails: the UEFI ISO costs a full
       # live-build run, so it must not be lost over a failed check. The
-      # checksum is written only after sign-and-repack.sh finishes, which
-      # keeps a half-written ISO from being published as final.
+      # checksum is written only after repack-iso.sh finishes, which keeps a
+      # half-written ISO from being published as final.
       - name: Upload Repacked SecureBoot ISO and Checksum
-        if: always() && hashFiles('debian-live-lenovo300e-n4120-signed.iso.sha256') != ''
+        if: always() && hashFiles('debian-live-lenovo300e-uefi.iso.sha256') != ''
         uses: actions/upload-artifact@v5
         with:
-          name: debian-13-lenovo-300e-signed-iso
+          name: debian-13-lenovo-300e-uefi-iso
           path: |
-            debian-live-lenovo300e-n4120-signed.iso
-            debian-live-lenovo300e-n4120-signed.iso.sha256
+            debian-live-lenovo300e-uefi.iso
+            debian-live-lenovo300e-uefi.iso.sha256
           retention-days: 14
           # The ISO is already compressed; recompressing it just burns CI time.
           compression-level: 0
-
-      - name: Upload Public MOK Certificates
-        # Keep the public certs available even if verification/boot-test fails.
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: secureboot-mok-certificates
-          path: |
-            mok/mok.crt
-            mok/mok.der
-            mok/mok.cer
-          retention-days: 14
 
       - name: Publish GitHub Release
         if: success() && startsWith(github.ref, 'refs/tags/v')
@@ -227,8 +207,8 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           set -euo pipefail
-          ISO="debian-live-lenovo300e-n4120-signed.iso"
-          FILES=("$ISO" "${ISO}.sha256" "mok/mok.crt" "mok/mok.der" "mok/mok.cer")
+          ISO="debian-live-lenovo300e-uefi.iso"
+          FILES=("$ISO" "${ISO}.sha256")
 
           if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
             printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
@@ -242,11 +222,11 @@ jobs:
 
           gh release create "${GITHUB_REF_NAME}" "${FILES[@]}" \
             --title "Debian 13 Lenovo 300e ${GITHUB_REF_NAME}" \
-            --notes "ISO live de Debian 13 para Lenovo 300e (N4120), firmada con MOK.
+            --notes "ISO live de Debian 13 para Lenovo 300e (N4120), UEFI Secure Boot con firmas de Debian.
 
           Verifica la descarga con:
           \`\`\`
           sha256sum -c ${ISO}.sha256
           \`\`\`
 
-          Las claves públicas MOK van adjuntas (\`MOK.crt\`, \`MOK.der\`, \`MOK.cer\`)."
+          Arranca con Secure Boot activado sin enrolar ninguna clave."

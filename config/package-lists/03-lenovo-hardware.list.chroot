@@ -1,6 +1,7 @@
 # Hardware Firmware & Drivers for Lenovo 300e 2nd Gen (Intel Celeron N4120)
-firmware-linux
-firmware-misc-nonfree
+# Only firmware for the 81M9: Intel graphics/audio/WiFi and the Realtek WiFi
+# variant. The firmware-linux/firmware-misc-nonfree metapackages are omitted
+# on purpose: they pull AMD/NVIDIA and other blobs this laptop never uses.
 firmware-sof-signed
 firmware-intel-sound
 alsa-ucm-conf

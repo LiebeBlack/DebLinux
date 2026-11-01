@@ -7,8 +7,12 @@
 # The ISO must carry `console=ttyS0,115200` in its live boot append (it is set
 # by auto/config), which makes the kernel, shim/GRUB errors and the serial
 # getty visible on the QEMU serial log. Reaching a login prompt there proves
-# that the firmware accepted shim, shim accepted GRUB, GRUB loaded the kernel
-# and userspace started.
+# that the firmware accepted shim, shim accepted GRUB, GRUB loaded the
+# Debian-signed kernel and userspace started. No MOK is enrolled.
+#
+# By default the ISO is attached as a USB mass-storage disk, the medium the
+# Lenovo 300e actually uses, so the GPT + ESP path is exercised. Set
+# BOOT_MEDIA=cdrom to test the El Torito path instead.
 #
 # Requires: qemu-system-x86, ovmf, socat, tesseract-ocr,
 # tesseract-ocr-eng and netpbm (OCR output is kept as boot evidence).
@@ -18,12 +22,21 @@ set -euo pipefail
 ISO="${1:-}"
 BOOT_TIMEOUT="${BOOT_TIMEOUT:-900}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
+BOOT_MEDIA="${BOOT_MEDIA:-usb}"
 ARTIFACT_DIR="${BOOT_TEST_ARTIFACTS:-boot-test-artifacts}"
 
 if [ -z "$ISO" ] || [ ! -f "$ISO" ]; then
-    echo "Usage: $0 <signed.iso>"
+    echo "Usage: $0 <uefi.iso>"
     exit 1
 fi
+
+case "$BOOT_MEDIA" in
+    usb|cdrom) ;;
+    *)
+        echo "ERROR: BOOT_MEDIA must be 'usb' or 'cdrom' (got '$BOOT_MEDIA')"
+        exit 1
+        ;;
+esac
 
 OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
 OVMF_VARS="/usr/share/OVMF/OVMF_VARS_4M.ms.fd"
@@ -77,19 +90,37 @@ BOOTED_RE='login:|welcome to debian|reached target multi-user|reached target gra
 
 cp "$OVMF_VARS" "$WORK_DIR/vars.fd"
 
-echo "=== Booting ${ISO} with OVMF Secure Boot (timeout ${BOOT_TIMEOUT}s) ==="
-qemu-system-x86_64 \
-    -machine q35 \
-    -accel tcg,thread=multi \
-    -m 2048 -smp 2 \
-    -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
-    -drive if=pflash,format=raw,file="$WORK_DIR/vars.fd" \
-    -drive file="$ISO",format=raw,media=cdrom,readonly=on \
-    -boot order=d \
-    -display none -vga std \
-    -monitor "unix:$WORK_DIR/monitor.sock,server=on,wait=off" \
-    -serial "file:$SERIAL_LOG" \
-    -no-reboot &
+QEMU_ARGS=(
+    -machine q35
+    -accel tcg,thread=multi
+    -m 2048 -smp 2
+    -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE"
+    -drive if=pflash,format=raw,file="$WORK_DIR/vars.fd"
+    -display none -vga std
+    -nic none
+    -monitor "unix:$WORK_DIR/monitor.sock,server=on,wait=off"
+    -serial "file:$SERIAL_LOG"
+    -no-reboot
+)
+
+if [ "$BOOT_MEDIA" = "usb" ]; then
+    # Attach the ISO as a USB mass-storage disk: OVMF reads the GPT and boots
+    # the appended ESP (EFI/BOOT/BOOTX64.EFI), exactly like the real USB stick.
+    QEMU_ARGS+=(
+        -drive if=none,id=usbstick,file="$ISO",format=raw,readonly=on
+        -device qemu-xhci
+        -device usb-storage,drive=usbstick
+        -boot order=c
+    )
+else
+    QEMU_ARGS+=(
+        -drive file="$ISO",format=raw,media=cdrom,readonly=on
+        -boot order=d
+    )
+fi
+
+echo "=== Booting ${ISO} as ${BOOT_MEDIA} with OVMF Secure Boot (timeout ${BOOT_TIMEOUT}s) ==="
+qemu-system-x86_64 "${QEMU_ARGS[@]}" &
 QEMU_PID=$!
 
 for _ in $(seq 1 30); do
@@ -163,4 +194,4 @@ else
     echo "WARNING: QEMU did not produce a screendump; no screen evidence captured."
 fi
 
-echo "OK: system reached userspace under Secure Boot with no rejection (kernel signature chain is also checked by verify-iso.sh)."
+echo "OK: system reached userspace under Secure Boot with no rejection (Debian-signed chain; no MOK enrolled)."

@@ -11,10 +11,6 @@ cache/
 *.hybrid.iso
 *.log
 
-# Sensitive private keys (keep in GitHub Secrets or CI ephemeral storage)
-mok/mok.key
+# Sensitive private keys
 *.key
 *.pem
-
-# Build-time MOK material (public certs are attached by CI, never committed)
-/mok/

@@ -1,6 +1,6 @@
-# Official Debian UEFI Secure Boot & MOK Management Tools
+# Official Debian UEFI Secure Boot chain (Microsoft-signed shim,
+# Debian-signed GRUB and Debian-signed kernels). No MOK keys or MokManager
+# are used; mokutil is pulled in by shim-signed but is not used.
 shim-signed
 grub-efi-amd64-signed
-mokutil
-sbsigntool
 efibootmgr

@@ -1,0 +1,46 @@
+#!/bin/sh
+# 0150-strip-unused-firmware.hook.chroot
+# The 81M9 has Intel graphics/audio and Intel or Realtek WiFi. Remove the
+# generic firmware metapackages that drag in AMD/NVIDIA and other unused blobs,
+# even when apt pulled them in as a recommendation.
+
+set -eu
+export DEBIAN_FRONTEND=noninteractive
+
+echo "=== Removing firmware for hardware the Lenovo 300e does not have ==="
+
+for PKG in \
+    firmware-linux \
+    firmware-linux-free \
+    firmware-linux-nonfree \
+    firmware-misc-nonfree \
+    firmware-nvidia-graphics \
+    firmware-amd-graphics
+do
+    if dpkg-query -W -f='${Status}' "$PKG" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "Purging ${PKG}..."
+        apt-get purge -y "$PKG"
+    fi
+done
+
+LEFTOVER="$(dpkg-query -W -f='${Package}\n' 2>/dev/null \
+    | grep -E '^(firmware-linux(-free|-nonfree)?|firmware-misc-nonfree|firmware-nvidia-graphics|firmware-amd-graphics)$' \
+    || true)"
+if [ -n "$LEFTOVER" ]; then
+    echo "ERROR: unused firmware packages are still installed:" >&2
+    printf '%s\n' "$LEFTOVER" >&2
+    exit 1
+fi
+
+NVIDIA_DRIVERS="$(dpkg-query -W -f='${Package}\n' 2>/dev/null \
+    | grep -E '^nvidia-(driver|kernel|dkms|legacy|open)' \
+    || true)"
+if [ -n "$NVIDIA_DRIVERS" ]; then
+    echo "ERROR: NVIDIA driver packages are installed on an Intel-only laptop:" >&2
+    printf '%s\n' "$NVIDIA_DRIVERS" >&2
+    exit 1
+fi
+
+echo "Firmware packages kept:"
+dpkg-query -W -f='${Package} ${Version}\n' 'firmware-*' 2>/dev/null | sort || true
+echo "=== Unused firmware cleanup complete ==="

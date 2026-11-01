@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DebLinux — Debian 13 ultraligero con Secure Boot real para Lenovo 300e</title>
-<meta name="description" content="ISO live de Debian 13 (Trixie) con Wayland/Labwc, firmada con MOK y verificada con Secure Boot en QEMU + OVMF. Construida para el Intel Celeron N4120 de la Lenovo 300e.">
+<meta name="description" content="ISO live de Debian 13 (Trixie) con Wayland/Labwc, UEFI Secure Boot con firmas de Debian y verificada en QEMU + OVMF. Construida para el Intel Celeron N4120 de la Lenovo 300e.">
 <meta name="theme-color" content="#05060a">
 <meta property="og:title" content="DebLinux — Debian 13 con Secure Boot real">
-<meta property="og:description" content="ISO ultraligera de Debian 13 para Lenovo 300e: Wayland, shim + GRUB firmados y kernel firmado con MOK. Verificada arrancando en QEMU con OVMF Secure Boot.">
+<meta property="og:description" content="ISO ultraligera de Debian 13 para Lenovo 300e: Wayland, shim + GRUB + kernel firmados por Debian. Verificada arrancando en QEMU con OVMF Secure Boot.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230b0d14'/%3E%3Cpath d='M9 9h6.5a7 7 0 0 1 0 14H9z' fill='none' stroke='%237c5cff' stroke-width='2.6'/%3E%3C/svg%3E">
 <style>
@@ -221,7 +221,6 @@
     font-size:10.5px;letter-spacing:.06em;padding:5px 9px;border-radius:999px;
     border:1px solid rgba(74,222,128,.35);color:#a7f3c4;background:rgba(74,222,128,.08);
   }
-  .node .seal.mok{border-color:rgba(255,184,107,.4);color:#ffd7a8;background:rgba(255,184,107,.09)}
   .node .seal svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
   @media (max-width:900px){.chain{grid-template-columns:1fr 1fr}}
 
@@ -368,14 +367,14 @@
   <!-- ================= HERO ================= -->
   <section class="hero" aria-labelledby="hero-title">
     <div>
-      <p class="eyebrow">Debian 13 Trixie · UEFI Secure Boot · MOK</p>
+      <p class="eyebrow">Debian 13 Trixie · UEFI Secure Boot · Firmas Debian</p>
       <h1 id="hero-title">Una ISO que arranca <span class="grad">con Secure Boot encendido</span>, sin pedir permiso.</h1>
-      <p class="sub">Debian 13 ultraligero con Wayland y Labwc, reconstruido a medida para la Lenovo 300e y firmado de extremo a extremo: shim de Microsoft, GRUB de Debian y un kernel firmado con tu propia Machine Owner Key.</p>
+      <p class="sub">Debian 13 ultraligero con Wayland y Labwc, reconstruido a medida para la Lenovo 300e y firmado de extremo a extremo: shim de Microsoft, GRUB de Debian y kernel de Debian. Secure Boot activado sin enrolar ninguna clave.</p>
       <div class="badges">
         <span class="badge"><i></i>GPT + UEFI</span>
-        <span class="badge"><i></i>Kernel firmado</span>
+        <span class="badge"><i></i>Kernel Debian</span>
         <span class="badge"><i></i>Boot test en OVMF</span>
-        <span class="badge warn"><i></i>MOK nueva por build</span>
+        <span class="badge"><i></i>Sin MOK</span>
       </div>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/LiebeBlack/DebLinux" target="_blank" rel="noopener">
@@ -392,11 +391,11 @@
         <span class="term-title">actions / build-iso.yml</span>
       </div>
       <div class="term-body">
-        <div class="ln"><span class="dim">$</span> ./scripts/sign-and-repack.sh live.iso signed.iso</div>
-        <div class="ln"><span class="ok">✓</span> kernel firmado · <span class="dim">sbsign + sbverify</span></div>
-        <div class="ln"><span class="ok">✓</span> efi.img reconstruido · <span class="vi">mmx64.efi</span></div>
-        <div class="ln"><span class="ok">✓</span> El Torito UEFI → <span class="cy">/boot/grub/efi.img</span></div>
-        <div class="ln"><span class="ok">✓</span> GPT híbrido · <span class="dim">LBA 1 = EFI PART</span></div>
+        <div class="ln"><span class="dim">$</span> ./scripts/repack-iso.sh live.iso uefi.iso</div>
+        <div class="ln"><span class="ok">✓</span> kernel Debian · <span class="dim">firma intacta</span></div>
+        <div class="ln"><span class="ok">✓</span> GPT + MBR protector · <span class="vi">0xEE</span></div>
+        <div class="ln"><span class="ok">✓</span> El Torito UEFI → <span class="cy">ESP</span></div>
+        <div class="ln"><span class="ok">✓</span> shim Microsoft · <span class="dim">GRUB Debian</span></div>
         <div class="ln"><span class="ok">✓</span> boot test · <span class="dim">login:</span> en ttyS0</div>
         <div class="ln"><span class="dim">$</span> <span class="caret"></span></div>
       </div>
@@ -427,8 +426,8 @@
       <article class="card rv">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
         <h3>Firma de extremo a extremo</h3>
-        <p>shim firmado por la CA de Microsoft, GRUB firmado por Debian y el kernel firmado con MOK con <code>sbsign</code>. Cada salto valida al siguiente.</p>
-        <span class="tag">shim-signed · grub-efi · sbsigntool</span>
+        <p>shim firmado por la CA de Microsoft, GRUB firmado por Debian y kernel firmado por Debian. Cada salto valida al siguiente, sin MOK ni claves que enrolar.</p>
+        <span class="tag">shim-signed · grub-efi · kernel Debian</span>
       </article>
 
       <article class="card rv">
@@ -441,7 +440,7 @@
       <article class="card rv">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M3 20h18"/><path d="M8 10l2 2 4-4"/></svg></div>
         <h3>Instalador GPT obligatorio</h3>
-        <p>Calamares exige tabla GPT y partición EFI: la ISO solo trae GRUB UEFI, así que una instalación MBR heredada quedaría sin arranque y se rechaza de entrada.</p>
+        <p>Calamares exige tabla GPT y partición EFI: la ISO solo trae GRUB UEFI, sin bootloader BIOS, así que una instalación MBR heredada se rechaza de entrada.</p>
         <span class="tag">calamares · partition.conf</span>
       </article>
 
@@ -464,8 +463,8 @@
   <!-- ================= CADENA ================= -->
   <section id="cadena">
     <p class="eyebrow rv">Cadena de confianza</p>
-    <h2 class="rv">Cuatro saltos, <em>tres firmas distintas</em>.</h2>
-    <p class="lede rv">Secure Boot no confía en tu kernel por buena voluntad: exige una cadena de firmas que el firmware pueda verificar. Esta ISO la construye explícitamente, eslabón por eslabón.</p>
+    <h2 class="rv">Cuatro saltos, <em>cero claves que enrolar</em>.</h2>
+    <p class="lede rv">Secure Boot no confía en tu kernel por buena voluntad: exige una cadena de firmas que el firmware pueda verificar. Esta ISO usa la que Debian ya firma, sin añadir una MOK.</p>
 
     <div class="chain">
       <div class="node rv">
@@ -488,14 +487,14 @@
       </div>
       <div class="node rv">
         <div class="n">04 · Kernel</div>
-        <h4>vmlinuz + MOK</h4>
-        <div class="who"><code>sbsign --key mok.key</code></div>
-        <span class="seal mok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="8"/></svg>requiere enrolar</span>
+        <h4>vmlinuz</h4>
+        <div class="who"><code>linux-image-amd64</code></div>
+        <span class="seal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>firmado por Debian</span>
       </div>
     </div>
 
     <div class="note rv">
-      <b>La MOK no viene de serie.</b> Se genera nueva en cada compilación y no se guarda en el repositorio, así que la primera vez hay que enrolarla desde MokManager — que va incluido dentro de <code>efi.img</code> y también en <code>/EFI/boot/mmx64.efi</code>, porque shim solo lo busca en el mismo sistema de ficheros desde el que se cargó.
+      <b>No hay MOK.</b> Debian firma el kernel de <code>linux-image-amd64</code> y shim incluye la CA de Debian, así que la cadena shim → GRUB → kernel se valida sin enrolar nada. La ISO no lleva <code>mmx64.efi</code>, certificados MOK ni <code>sbsign</code>.
     </div>
   </section>
 
@@ -512,43 +511,42 @@
       </div></div>
 
       <div class="step rv"><div class="num">02</div><div>
-        <h4>Firma del kernel</h4>
-        <p><code>sbsign</code> firma cada <code>vmlinuz*</code> con la clave MOK y <code>sbverify</code> confirma el resultado antes de continuar. Si la firma no verifica, no hay ISO.</p>
+        <h4>Kernel Debian intacto</h4>
+        <p>El <code>vmlinuz</code> de <code>linux-image-amd64</code> ya lleva la firma PE/COFF de Debian. No se ejecuta <code>sbsign</code>: se copia tal cual a <code>/live/vmlinuz</code> y <code>sbverify</code> confirma que la firma Debian sigue ahí.</p>
       </div></div>
 
       <div class="step rv"><div class="num">03</div><div>
-        <h4>MokManager dentro de efi.img</h4>
-        <p>La imagen FAT de arranque se reconstruye conservando shim, GRUB y su configuración de prefijo, añadiendo <code>mmx64.efi</code>. Sin él, enrolar la clave desde el propio medio sería imposible.</p>
+        <h4>ESP a partir de efi.img</h4>
+        <p><code>boot/grub/efi.img</code> se añade como partición EFI del GPT. Contiene shim, GRUB y su configuración; no se inyecta <code>mmx64.efi</code> porque no hay MOK que gestionar.</p>
       </div></div>
 
       <div class="step rv"><div class="num">04</div><div>
-        <h4>Remontaje del árbol ISO9660</h4>
-        <p>Se inyectan los certificados públicos en la raíz (<code>MOK.crt</code>, <code>MOK.der</code>, <code>MOK.cer</code>) y el conjunto <code>/EFI/boot</code>, para que «boot from file» del firmware encuentre shim y su segunda etapa juntos.</p>
+        <h4>GPT + MBR protector</h4>
+        <p>La ISO se reconstruye con un GPT válido y un MBR protector <code>0xEE</code>, sin APM, sin código BIOS y sin entrada El Torito BIOS. El arranque por USB usa el ESP; el arranque por CD usa El Torito UEFI.</p>
       </div></div>
 
       <div class="step rv"><div class="num">05</div><div>
-        <h4>Reconstrucción con el mkisofs de live-build</h4>
-        <p>La ISO final se genera con los mismos flags que usa upstream (<code>-R -r -J -joliet-long -l -iso-level 3</code>, <code>-e boot/grub/efi.img</code>, <code>-isohybrid-gpt-basdat</code>), conservando volumen y metadatos del original.</p>
+        <h4>Reconstrucción UEFI-only</h4>
+        <p>La ISO final se genera con <code>-append_partition 2 0xef</code>, <code>-appended_part_as_gpt</code> y <code>-partition_offset 16</code>, conservando volumen y metadatos del original. Nada de <code>-isohybrid-gpt-basdat</code>: sin <code>-isohybrid-mbr</code> xorriso la ignora y el GPT no se escribe.</p>
       </div></div>
 
       <div class="step rv"><div class="num">06</div><div>
         <h4>Verificación y arranque real</h4>
-        <p>Se comprueba la entrada El Torito UEFI, la firma <code>EFI PART</code> del GPT en el LBA 1, el contenido de <code>efi.img</code> y la firma de shim y GRUB. Después la ISO se arranca en QEMU con OVMF Secure Boot hasta ver <code>login:</code> en el puerto serie.</p>
+        <p>Se comprueba el GPT en el LBA 1, el MBR protector <code>0xEE</code>, la ausencia de APM y de código BIOS, la entrada El Torito UEFI, las firmas Microsoft/Debian y la firma Debian de cada kernel. Después la ISO se arranca en QEMU con OVMF Secure Boot <b>como disco USB</b> hasta ver <code>login:</code> en el puerto serie.</p>
       </div></div>
     </div>
 
     <div class="code rv">
-      <button class="copy" data-copy="cd DebLinux&#10;./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso signed.iso mok/mok.key mok/mok.crt mok/mok.der&#10;./scripts/verify-iso.sh signed.iso mok/mok.crt" aria-label="Copiar comandos">Copiar</button>
-      <pre><span class="cm"># firma + reconstrucción de la ISO (sin sudo: solo lee la ISO)</span>
-./scripts/sign-and-repack.sh live-image-amd64.hybrid.iso \
-    debian-live-lenovo300e-n4120-signed.iso \
-    mok/mok.key mok/mok.crt mok/mok.der
+      <button class="copy" data-copy="cd DebLinux&#10;./scripts/repack-iso.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-uefi.iso&#10;./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso" aria-label="Copiar comandos">Copiar</button>
+      <pre><span class="cm"># reconstrucción UEFI-only (sin sudo: solo lee la ISO)</span>
+./scripts/repack-iso.sh live-image-amd64.hybrid.iso \
+    debian-live-lenovo300e-uefi.iso
 
-<span class="cm"># cadena Secure Boot completa</span>
-./scripts/verify-iso.sh debian-live-lenovo300e-n4120-signed.iso mok/mok.crt
+<span class="cm"># layout + cadena Secure Boot de Debian</span>
+./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
 
-<span class="cm"># arranque real con OVMF Secure Boot</span>
-./scripts/boot-test-iso.sh debian-live-lenovo300e-n4120-signed.iso</pre>
+<span class="cm"># arranque real con OVMF Secure Boot (USB por defecto)</span>
+./scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso</pre>
     </div>
   </section>
 
@@ -559,9 +557,9 @@
     <p class="lede rv">No es una ISO genérica con otro fondo de pantalla: es el perfil de una Lenovo 300e de segunda generación, con sus límites de memoria, su GPU y su audio.</p>
 
     <dl class="specs rv">
-      <div class="spec"><dt>Equipo</dt><dd>Lenovo 300e 2nd Gen (Type 81M9 / 82GK)</dd></div>
+      <div class="spec"><dt>Equipo</dt><dd>Lenovo 300e 2nd Gen (Type 81M9)</dd></div>
       <div class="spec"><dt>Procesador</dt><dd>Intel Celeron N4120 · 4 núcleos · 1.10–2.60 GHz · Gemini Lake Refresh</dd></div>
-      <div class="spec"><dt>Gráficos</dt><dd>Intel UHD Graphics 600 · VA-API vía iHD + Mesa Iris</dd></div>
+      <div class="spec"><dt>Gráficos</dt><dd>Intel UHD Graphics 600 · VA-API vía iHD + Mesa Iris · sin GPU NVIDIA</dd></div>
       <div class="spec"><dt>Audio</dt><dd>Intel SOF · firmware-sof-signed · alsa-ucm-conf</dd></div>
       <div class="spec"><dt>Red</dt><dd>Intel Wireless / Realtek · NetworkManager + applet</dd></div>
       <div class="spec"><dt>Memoria</dt><dd>4 GB con zram (swap comprimida) y thermald</dd></div>
@@ -587,17 +585,17 @@
   <section id="instalar">
     <p class="eyebrow rv">Primer arranque</p>
     <h2 class="rv">Cuatro pasos y <em>Secure Boot sigue encendido</em>.</h2>
-    <p class="lede rv">La clave MOK se genera en cada compilación, así que la ISO que descargues exige enrolarla una vez. No hay que desactivar nada en el firmware.</p>
+    <p class="lede rv">La ISO usa la cadena firmada de Debian: no hay MOK que enrolar. No hay que desactivar nada en el firmware.</p>
 
     <div class="howto">
       <div class="hstep rv">
         <div class="b" aria-hidden="true"></div>
         <div>
           <h4>Graba la ISO en un USB</h4>
-          <p>Sirve <code>dd</code>, Ventoy o cualquier grabador que escriba la imagen tal cual: la ISO es híbrida, con GPT y entrada El Torito para UEFI.</p>
+          <p>Sirve <code>dd</code>, Ventoy o cualquier grabador que escriba la imagen tal cual: la ISO es UEFI-only, con GPT, MBR protector y entrada El Torito UEFI.</p>
           <div class="code">
-            <button class="copy" data-copy="sudo dd if=debian-live-lenovo300e-n4120-signed.iso of=/dev/sdX bs=4M status=progress oflag=sync" aria-label="Copiar comando dd">Copiar</button>
-            <pre>sudo dd if=debian-live-lenovo300e-n4120-signed.iso \
+            <button class="copy" data-copy="sudo dd if=debian-live-lenovo300e-uefi.iso of=/dev/sdX bs=4M status=progress oflag=sync" aria-label="Copiar comando dd">Copiar</button>
+            <pre>sudo dd if=debian-live-lenovo300e-uefi.iso \
     of=/dev/sdX bs=4M status=progress oflag=sync</pre>
           </div>
         </div>
@@ -607,23 +605,23 @@
         <div class="b" aria-hidden="true"></div>
         <div>
           <h4>Arranca desde el USB con F12</h4>
-          <p>Enciende la Lenovo 300e y abre el menú de arranque del firmware. Antes del primer arranque del sistema hay que enrolar la MOK, porque el kernel está firmado con ella y el firmware todavía no la conoce.</p>
+          <p>Enciende la Lenovo 300e y abre el menú de arranque del firmware. Elige el USB: la ISO arranca directamente con Secure Boot activado, sin enrolar ninguna clave.</p>
         </div>
       </div>
 
       <div class="hstep rv">
         <div class="b" aria-hidden="true"></div>
         <div>
-          <h4>Enrola la clave desde MokManager</h4>
-          <p>Usa «Boot from file» o el shell EFI para ejecutar <code>EFI/boot/mmx64.efi</code> del USB y elige <b>Enroll key from disk</b>. Selecciona <code>MOK.der</code> o <code>MOK.cer</code> desde la raíz del medio, revisa que el sujeto sea <code>Debian Secure Boot MOK</code> y confirma. Si el firmware solo lista particiones FAT, el plan B está en el README: importar con <code>mokutil --import</code> desde el sistema instalado.</p>
+          <h4>Instala con Calamares</h4>
+          <p>Calamares exige GPT con partición EFI. Deja que cree la tabla y el ESP; el instalador coloca shim y GRUB firmados por Debian, y el kernel instalado ya viene firmado. No hay MOK ni pasos extra.</p>
         </div>
       </div>
 
       <div class="hstep rv">
         <div class="b" aria-hidden="true"></div>
         <div>
-          <h4>Instala y arranca</h4>
-          <p>Calamares trabaja sobre GPT con partición EFI. En el sistema instalado, <code>grub-install</code> detecta que la sesión arrancó con Secure Boot y deja shim y GRUB firmados en la ESP; además, un servicio replica esa cadena en la ruta de medios extraíbles para cubrir una NVRAM borrada.</p>
+          <h4>Arranca el sistema instalado</h4>
+          <p>El sistema instalado usa la misma cadena Debian. Además, <code>efi-removable-fallback</code> replica shim, GRUB y <code>grub.cfg</code> en <code>EFI/BOOT</code> para que la laptop siga arrancando si el firmware pierde la entrada NVRAM; ya no copia <code>mmx64.efi</code>.</p>
         </div>
       </div>
     </div>
@@ -636,12 +634,12 @@
 
     <div class="faq">
       <details class="rv">
-        <summary>¿Por qué la clave MOK cambia en cada compilación?</summary>
-        <p>Porque no se versiona ninguna clave privada en el repositorio: se genera un par RSA 2048 nuevo en cada ejecución del workflow. Es más seguro, pero implica que cada ISO publicada necesita su propio enrolamiento.</p>
+        <summary>¿Por qué no hay que enrolar ninguna clave?</summary>
+        <p>Porque Debian ya firma sus kernels de <code>linux-image</code> y su shim incluye la CA de Debian. La cadena shim → GRUB → kernel se valida con las firmas que ya trae la ISO; no se genera ninguna MOK.</p>
       </details>
       <details class="rv">
         <summary>¿Tengo que desactivar Secure Boot para instalar?</summary>
-        <p>No. Ese es justamente el objetivo del proyecto. Desactivarlo solo aparece como plan B en el README para el caso de que el explorador de ficheros del firmware no muestre el ISO9660 y no puedas lanzar MokManager desde el medio.</p>
+        <p>No. La ISO arranca con Secure Boot activado y no necesita enrolar nada. Si el firmware no lista el USB, usa «Boot from file» y selecciona <code>EFI/BOOT/BOOTX64.EFI</code> de la partición EFI del medio.</p>
       </details>
       <details class="rv">
         <summary>¿Arranca en otro portátil?</summary>
@@ -649,7 +647,7 @@
       </details>
       <details class="rv">
         <summary>¿Cómo sé que la ISO que descargué arranca?</summary>
-        <p>Cada compilación arranca la ISO firmada en QEMU con OVMF Secure Boot y espera a ver el prompt <code>login:</code> en el puerto serie. Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel y systemd llegó a userspace. El log y las capturas quedan como artefacto del run.</p>
+        <p>Cada compilación arranca la ISO UEFI como disco USB en QEMU con OVMF Secure Boot y espera a ver el prompt <code>login:</code> en el puerto serie. Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel firmado por Debian y systemd llegó a userspace. El log y las capturas quedan como artefacto del run.</p>
       </details>
     </div>
   </section>
@@ -666,7 +664,7 @@
         </svg>
         <span><b>DebLinux</b></span>
       </a>
-      <p>Debian 13 ultraligero, firmado con MOK y probado arrancando, para una Lenovo 300e con el Secure Boot puesto.</p>
+      <p>Debian 13 ultraligero, con Secure Boot de Debian y probado arrancando, para una Lenovo 300e.</p>
     </div>
     <div>
       <h5>Repositorio</h5>
@@ -677,8 +675,8 @@
     </div>
     <div>
       <h5>Documentación</h5>
-      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-proceso-de-firma-mok-y-secure-boot" target="_blank" rel="noopener">Firma MOK y Secure Boot</a>
-      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-cómo-enrolar-la-clave-mok-en-la-lenovo-300e" target="_blank" rel="noopener">Enrolar la clave</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-secure-boot-sin-mok" target="_blank" rel="noopener">Secure Boot sin MOK</a>
+      <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-arranque-en-la-lenovo-300e" target="_blank" rel="noopener">Arranque en la Lenovo 300e</a>
       <a href="https://github.com/LiebeBlack/DebLinux/blob/main/README.md#-compilación-local-opcional" target="_blank" rel="noopener">Compilar en local</a>
     </div>
   </div>

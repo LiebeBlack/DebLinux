@@ -9,7 +9,6 @@
 #   EFI/BOOT/BOOTX64.EFI  shim          (Microsoft UEFI CA signed)
 #   EFI/BOOT/grubx64.efi  GRUB          (Debian signed, trusted by shim)
 #   EFI/BOOT/grub.cfg     search UUID + chainload /boot/grub/grub.cfg
-#   EFI/BOOT/mmx64.efi    MokManager    (MOK enrolment from the fallback path)
 #
 # Calamares' installEFIFallback copies the Debian-signed GRUB to BOOTX64.EFI,
 # which firmware rejects under Secure Boot because only Microsoft's CA is
@@ -77,11 +76,6 @@ if [ -z "$GRUB" ]; then
     exit 0
 fi
 
-# Debian ships MokManager as mmx64.efi.signed; grub-install may have copied it
-# into the vendor directory under either name.
-MM="$(find_first "${VENDOR_DIR}/mmx64.efi" \
-    /usr/lib/shim/mmx64.efi /usr/lib/shim/mmx64.efi.signed 2>/dev/null || true)"
-
 # Reuse the config grub-install wrote (it pins the root UUID); otherwise build
 # the same three lines so the fallback does not depend on that file existing.
 TEMP_CFG=""
@@ -138,11 +132,6 @@ mkdir -p "$BOOT_DIR"
 install_if_changed "$SHIM" "${BOOT_DIR}/BOOTX64.EFI"
 install_if_changed "$GRUB" "${BOOT_DIR}/grubx64.efi"
 install_if_changed "$GRUB_CFG" "${BOOT_DIR}/grub.cfg"
-if [ -n "$MM" ]; then
-    install_if_changed "$MM" "${BOOT_DIR}/mmx64.efi"
-else
-    log "MokManager (mmx64.efi) not available; fallback boots but cannot enrol keys"
-fi
 
 if [ "$CHANGED" -eq 0 ]; then
     exit 0
@@ -154,4 +143,4 @@ if ! cmp -s "$SHIM" "${BOOT_DIR}/BOOTX64.EFI"; then
     exit 1
 fi
 
-log "removable-media fallback installed: shim + MokManager + Debian-signed GRUB at EFI/BOOT"
+log "removable-media fallback installed: shim + Debian-signed GRUB at EFI/BOOT"
