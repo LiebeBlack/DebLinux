@@ -3,7 +3,7 @@
 binary/
 chroot/
 cache/
-local/
+/local/
 
 # ISO outputs
 *.iso
