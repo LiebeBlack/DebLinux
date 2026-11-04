@@ -22,7 +22,7 @@
     "custom/power"
   ],
   "custom/launcher": {
-    "format": " Debian ",
+    "format": " MAXT_OS ",
     "on-click": "fuzzel",
     "tooltip": false
   },
