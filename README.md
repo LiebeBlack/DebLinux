@@ -9,6 +9,7 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 - **Optimización automática**: Scripts de detección y optimización específicos para cada hardware detectado
 - **Wayland nativo**: Toda la stack está optimizada para Wayland con retrocompatibilidad XWayland
 - **Ultraligera y minimalista**: Solo lo esencial para un escritorio moderno y funcional
+- **Firmware mínimo y coherente**: `firmware-intel-graphics`, `firmware-iwlwifi` (WiFi y Bluetooth Intel), `firmware-sof-signed` + `firmware-intel-sound` + `alsa-ucm-conf` (audio SOF, con `sof-glk` para Gemini Lake) e `intel-microcode`; sin blobs AMD/NVIDIA (`firmware-misc-nonfree` excluido).
 
 ---
 
@@ -40,9 +41,9 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 - Soporte para múltiples altavoces y micrófonos
 
 ### Redes
-- WiFi: Intel Wireless (iwlwifi), Realtek, Atheros, Broadcom
-- Bluetooth: Intel, Realtek, Broadcom
-- Ethernet: Intel, Realtek, Atheros
+- WiFi: Intel Wireless (`iwlwifi`)
+- Bluetooth: Intel (firmware `ibt-*` en `firmware-iwlwifi`)
+- Ethernet: Intel
 
 ### Almacenamiento
 - eMMC, SSD SATA, SSD NVMe/M.2
@@ -66,11 +67,11 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 * **Barra de Estado:** Waybar (con indicador de batería, brillo, volumen, CPU y RAM).
 * **Terminal & Lanzador:** `foot` (terminal acelerado por Wayland) y `fuzzel` (lanzador de aplicaciones dmenu/rofi-like en Wayland).
 * **Navegador:** Firefox Nightly (`/opt/firefox-nightly`, verificado contra el archivo `.checksums` de Mozilla durante la compilación).
-* **Escritorio:** `mousepad` (editor gráfico), `pcmanfm`, `pavucontrol`, `nm-applet`.
+* **Escritorio:** `mousepad` (editor gráfico), `pcmanfm`, `pavucontrol` y `nmtui` (red).
 * **Herramientas de Configuración:**
-  - Pantalla: `arandr`, `autorandr`, `disper`, `colord`, `xrandr`, `ddcutil`
-  - Ratón/Touchpad: `libinput-gestures`, `xbindkeys`, `xinput`, `evtest`
-  - Hardware Intel: `intel-gpu-tools`, `powertop`, `tuned`, `thermald`
+  - Pantalla: `wlr-randr` (Wayland) y `xrandr` (XWayland, vía `x11-xserver-utils`)
+  - Ratón/Touchpad: `libinput-tools` y `xinput` (XWayland)
+  - Hardware Intel: `powertop`, `tuned`, `thermald`, `cpuid`
 * **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM), `thermald`, `tlp`.
 * **Medios extraíbles:** `exfatprogs` y `ntfs-3g` para montar USB exFAT/NTFS desde `udisks2`.
 * **Firmas UEFI:** `shim-signed` y `grub-efi-amd64-signed`; el kernel de `linux-image-amd64` ya viene firmado por Debian. No se instala `sbsigntool` en la ISO; `mokutil` puede venir como dependencia de `shim-signed`, pero no se usa.
@@ -106,14 +107,14 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   ├── 00-base.list.chroot          # Sistema base, live-boot, systemd, sudo
 │   │   ├── 01-wayland.list.chroot       # Labwc, foot, fuzzel, waybar, pipewire, seatd
 │   │   ├── 02-graphics-codecs.list.chroot # Controladores Intel VA-API, Mesa, FFmpeg
-│   │   ├── 03-lenovo-hardware.list.chroot # Firmware Intel/Realtek, microcódigo, red
+│   │   ├── 03-lenovo-hardware.list.chroot # Firmware Intel (GPU/WiFi/SOF), microcódigo, red
 │   │   ├── 04-secureboot.list.chroot    # Shim, GRUB EFI firmado y efibootmgr (sin claves MOK)
 │   │   ├── 05-installer.list.chroot     # Calamares y su configuración Debian
-│   │   └── 06-desktop-extras.list.chroot # swayidle/swaylock, zram, thermald, runtime Firefox
+│   │   └── 06-desktop-extras.list.chroot # swayidle/swaylock, zram, medios extraíbles, runtime Firefox
 │   ├── includes.chroot/
 │   │   ├── etc/
 │   │   │   ├── calamares/
-│   │   │   │   ├── settings.conf       # Secuencia de Calamares + job efi-fallback
+│   │   │   │   ├── settings.conf       # Secuencia, instancias shellprocess y job efi-fallback
 │   │   │   │   └── modules/
 │   │   │   │       ├── partition.conf  # Instalación obligatoria en tabla GPT (UEFI)
 │   │   │   │       └── efi-fallback.conf # Shim en EFI/BOOT antes del primer reinicio
@@ -256,6 +257,7 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 * **Verificación:** `scripts/verify-iso.sh` comprueba GPT + MBR protector, ausencia de APM y de entrada BIOS, la entrada El Torito UEFI, shim firmado por Microsoft, GRUB firmado por Debian y todos los kernels firmados por Debian. No usa MOK.
 * **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot **como disco USB** (el medio real) y se espera a que el sistema llegue a userspace: el arranque incluye `console=ttyS0,115200 console=tty0`, así que el log serie del invitado debe mostrar el prompt de login (`login:`). Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel firmado por Debian y systemd arrancó; si aparece un rechazo de firma, un `Kernel panic` o se agota el timeout (`BOOT_TIMEOUT`, 900 s por defecto), el job falla. Las capturas, el OCR y el log serie quedan como artefacto `secureboot-boot-test`. Con `BOOT_MEDIA=cdrom` se prueba la ruta El Torito.
 * **Instalación GPT:** `config/includes.chroot/etc/calamares/modules/partition.conf` fija `defaultPartitionTableType: gpt` y `requiredPartitionTableType: gpt`. La ISO solo trae GRUB para UEFI, así que el sistema instalado debe ser GPT con partición EFI; Calamares ya elige GPT en sistemas EFI, pero así queda explícito y se rechaza una instalación legacy/MBR. El job `shellprocess@efi-fallback` de `settings.conf` deja el respaldo shim en `EFI/BOOT` antes de reiniciar.
+* **Instancias de Calamares:** `settings.conf` declara `shellprocess@efi-fallback`, `@detect-intel-hardware` y `@remove-installer-menu` en la sección `instances:` con su `.conf` propio. Sin ese bloque Calamares cargaría `shellprocess.conf` y las tres tareas no se ejecutarían.
 * **Releases:** solo al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256` y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`. Un push a `main` no crea releases; para publicar, crea y empuja un tag `v*`. Ya no se adjuntan certificados MOK.
 
 ---
@@ -338,9 +340,11 @@ Esto deja el sistema instalado limpio y listo para uso, sin residuos del modo li
 
 El sistema incluye herramientas completas para configurar:
 
-- **Pantalla**: `arandr`, `autorandr`, `disper`, `colord`, `xrandr`, `ddcutil`, `xcalib`
-- **Ratón/Touchpad**: `libinput-gestures`, `xbindkeys`, `xinput`, `evtest`, `xautomation`, `xdotool`
-- **Hardware Intel**: `intel-gpu-tools`, `powertop`, `tuned`, `thermald`, `cpuid`
+- **Pantalla**: `wlr-randr` (Wayland) y `xrandr` (XWayland, vía `x11-xserver-utils`)
+- **Audio**: `pavucontrol` y `wpctl` / `pw-cli` (PipeWire)
+- **Red**: `nmtui` / `nmcli` (NetworkManager)
+- **Ratón/Touchpad**: `libinput-tools` y `xinput` (XWayland)
+- **Hardware Intel**: `powertop`, `tuned`, `thermald`, `cpuid`
 - **Telemetría**: `dmidecode`, `hwinfo`, `lshw`, `pciutils`, `usbutils`, `ethtool`
 
 ### Soporte Universal Intel
@@ -350,8 +354,7 @@ La ISO ahora soporta:
 - GPUs Intel integradas (HD, UHD, Iris Xe)
 - GPUs Intel dedicadas (Arc A380, A750, A770, etc.)
 - GPUs Intel legacy (HD Graphics 2000/3000/4000, Iris 5100/6100)
-- Múltiples opciones de WiFi (Intel, Realtek, Atheros, Broadcom)
-- Múltiples opciones de Bluetooth (Intel, Realtek, Broadcom)
+- WiFi y Bluetooth Intel (firmware `firmware-iwlwifi`)
 - Múltiples opciones de audio (Intel SOF, HD Audio, alternativas)
 
 Todo esto se detecta y configura automáticamente durante la instalación.

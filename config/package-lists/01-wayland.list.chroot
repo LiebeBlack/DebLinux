@@ -31,5 +31,7 @@ upower
 pipewire
 pipewire-pulse
 wireplumber
+alsa-ucm-conf
+pavucontrol
 alsa-utils
 

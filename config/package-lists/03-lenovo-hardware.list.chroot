@@ -1,8 +1,8 @@
 # Intel Firmware - Minimal Essential
 firmware-intel-sound
+firmware-sof-signed
 firmware-iwlwifi
 firmware-intel-graphics
-firmware-misc-nonfree
 intel-microcode
 
 # Networking - Minimal
@@ -18,5 +18,4 @@ libinput-tools
 xserver-xorg-input-libinput
 xinput
 x11-xserver-utils
-xrandr
 

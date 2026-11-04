@@ -51,5 +51,16 @@ if [ "$INTEL_AUDIO" = "true" ]; then
     echo "options snd_hda_intel power_save=1" > /etc/modprobe.d/snd_hda_intel.conf
 fi
 
+# Persist the changes: modprobe options only reach the early i915 load through
+# the initramfs, and the IOMMU flag needs a regenerated grub.cfg.
+if [ -f /etc/modprobe.d/i915.conf ] || [ -f /etc/modprobe.d/iwlwifi.conf ] || [ -f /etc/modprobe.d/snd_hda_intel.conf ]; then
+    if command -v update-initramfs >/dev/null 2>&1; then
+        update-initramfs -u -k all >/dev/null 2>&1 || true
+    fi
+fi
+if command -v update-grub >/dev/null 2>&1; then
+    update-grub >/dev/null 2>&1 || true
+fi
+
 echo "=== Intel Hardware Optimization Completed ===" | tee -a "$LOG_FILE"
 

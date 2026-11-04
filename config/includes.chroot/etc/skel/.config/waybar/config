@@ -45,7 +45,7 @@
     "format-ethernet": "ETH: CONNECTED",
     "format-disconnected": "NET: DISCONNECTED",
     "tooltip-format": "{ifname} via {gwaddr}",
-    "on-click": "nm-connection-editor",
+    "on-click": "foot -e nmtui",
     "interval": 5
   },
   "pulseaudio": {

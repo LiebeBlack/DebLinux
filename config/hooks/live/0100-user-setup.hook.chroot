@@ -12,10 +12,6 @@ for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /usr/l
     fi
 done
 
-if command -v libinput-gestures >/dev/null 2>&1; then
-    usermod -aG input live 2>/dev/null || true
-fi
-
 if [ -d /etc/systemd/system/getty@tty1.service.d ]; then
     chmod 755 /etc/systemd/system/getty@tty1.service.d
     chmod 644 /etc/systemd/system/getty@tty1.service.d/autologin.conf

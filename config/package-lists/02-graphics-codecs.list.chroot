@@ -3,7 +3,6 @@ intel-media-va-driver
 mesa-va-drivers
 mesa-vulkan-drivers
 firmware-intel-graphics
-firmware-misc-nonfree
 libva-wayland2
 libva-drm2
 vainfo

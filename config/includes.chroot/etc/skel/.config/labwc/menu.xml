@@ -22,11 +22,11 @@
       <action name="Execute" command="pavucontrol" />
     </item>
     <item label="Network Connections (Wi-Fi)">
-      <action name="Execute" command="nm-connection-editor" />
+      <action name="Execute" command="foot -e nmtui" />
     </item>
     <separator />
-    <item label="Display Settings (Arandr)">
-      <action name="Execute" command="arandr" />
+    <item label="Display Settings (wlr-randr)">
+      <action name="Execute" command="foot -e wlr-randr" />
     </item>
     <item label="Mouse/Touchpad Settings (Xinput)">
       <action name="Execute" command="xinput" />
