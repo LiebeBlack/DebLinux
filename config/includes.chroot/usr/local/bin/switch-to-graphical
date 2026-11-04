@@ -1,0 +1,26 @@
+#!/bin/bash
+# Switch to graphical Wayland session (Labwc)
+# Can be called from TTY to start Wayland session
+# Optimized for Intel - minimal and error-free
+
+set +e
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "ERROR: Do not run as root. Run as regular user." >&2
+    exit 1
+fi
+
+# Check if labwc is available
+if ! command -v labwc >/dev/null 2>&1; then
+    echo "ERROR: labwc is not installed." >&2
+    exit 1
+fi
+
+# Check if a graphical session is already running
+if [ -n "${WAYLAND_DISPLAY}" ] || [ -n "${DISPLAY}" ]; then
+    echo "A graphical session is already running."
+    exit 0
+fi
+
+echo "Starting Wayland session (Labwc)..."
+exec /usr/local/bin/launch-labwc

@@ -1,0 +1,12 @@
+[Unit]
+Description=Intel Display and Wayland Session Setup
+After=systemd-user-sessions.service seatd.service
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/setup-intel-display
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

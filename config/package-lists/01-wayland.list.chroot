@@ -1,4 +1,4 @@
-# Pila Ultraligera Wayland (wlroots / Labwc)
+# Ultralight Wayland Stack (wlroots / Labwc)
 labwc
 xwayland
 seatd
@@ -12,27 +12,24 @@ wlr-randr
 grim
 slurp
 
-# Fuentes del Sistema, Glifos y Temas de Iconos Completos
+# Minimal Fonts
 fonts-dejavu-core
 fonts-liberation2
-fonts-font-awesome
-adwaita-icon-theme
 
-# Notificaciones y Gestión de Archivos
+# Notifications - Minimal
 mako-notifier
+
+# File Manager - Minimal
 pcmanfm
 gvfs
 udisks2
 
-# Gestión de Energía y Batería de Laptop
+# Power Management - Minimal
 upower
-power-profiles-daemon
 
-# Servidor de Audio PipeWire Completo
+# Audio Server - Minimal PipeWire
 pipewire
-pipewire-audio
 pipewire-pulse
-pipewire-alsa
 wireplumber
 alsa-utils
-pavucontrol
+

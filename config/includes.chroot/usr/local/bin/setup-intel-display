@@ -1,0 +1,69 @@
+#!/bin/bash
+# System setup script for Intel display and Wayland session
+# Ensures proper permissions and configuration for both text and graphical modes
+# Optimized for minimal errors and graceful fallbacks
+
+set +e
+
+LOG_FILE="/var/log/intel-display-setup.log"
+
+echo "=== Intel Display Setup Started ===" | tee -a "$LOG_FILE"
+echo "Date: $(date)" | tee -a "$LOG_FILE"
+
+# Ensure video group exists
+if ! getent group video >/dev/null 2>&1; then
+    echo "Creating video group..." | tee -a "$LOG_FILE"
+    groupadd -r video 2>/dev/null || true
+fi
+
+# Ensure render group exists
+if ! getent group render >/dev/null 2>&1; then
+    echo "Creating render group..." | tee -a "$LOG_FILE"
+    groupadd -r render 2>/dev/null || true
+fi
+
+# Ensure input group exists
+if ! getent group input >/dev/null 2>&1; then
+    echo "Creating input group..." | tee -a "$LOG_FILE"
+    groupadd -r input 2>/dev/null || true
+fi
+
+# Add current user to required groups if not root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Adding user to hardware groups..." | tee -a "$LOG_FILE"
+    usermod -aG video "$(id -un)" 2>/dev/null || true
+    usermod -aG render "$(id -un)" 2>/dev/null || true
+    usermod -aG input "$(id -un)" 2>/dev/null || true
+fi
+
+# Ensure seatd is running
+if command -v systemctl >/dev/null 2>&1; then
+    echo "Enabling seatd service..." | tee -a "$LOG_FILE"
+    systemctl enable seatd.service 2>/dev/null || true
+    systemctl start seatd.service 2>/dev/null || true
+fi
+
+# Configure DRM permissions
+if [ -d /dev/dri ]; then
+    echo "Setting DRM device permissions..." | tee -a "$LOG_FILE"
+    chmod 0660 /dev/dri/* 2>/dev/null || true
+    chgrp video /dev/dri/* 2>/dev/null || true
+fi
+
+# Ensure XDG_RUNTIME_DIR exists for all users
+for USER_HOME in /home/*; do
+    if [ -d "$USER_HOME" ]; then
+        USERNAME=$(basename "$USER_HOME")
+        USER_ID=$(id -u "$USERNAME" 2>/dev/null)
+        if [ -n "$USER_ID" ]; then
+            RUNTIME_DIR="/run/user/$USER_ID"
+            mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+            if [ -d "$RUNTIME_DIR" ]; then
+                chown "$USERNAME:$USERNAME" "$RUNTIME_DIR" 2>/dev/null || true
+                chmod 0700 "$RUNTIME_DIR" 2>/dev/null || true
+            fi
+        fi
+    fi
+done
+
+echo "=== Intel Display Setup Completed ===" | tee -a "$LOG_FILE"

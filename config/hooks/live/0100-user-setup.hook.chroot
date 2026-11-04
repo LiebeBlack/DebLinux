@@ -6,27 +6,27 @@ set -e
 
 echo "=== Configuring users, permissions and services in chroot ==="
 
-# 1. Ensure executable permissions on custom scripts
-for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /usr/local/sbin/efi-removable-fallback /etc/profile.d/99-autostart-labwc.sh /etc/skel/.config/labwc/autostart; do
+for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /usr/local/sbin/efi-removable-fallback /usr/local/bin/detect-intel-hardware /usr/local/bin/optimize-intel-hardware /usr/local/bin/setup-intel-display /usr/local/bin/switch-to-graphical /usr/local/bin/switch-to-text /etc/profile.d/99-autostart-labwc.sh /etc/skel/.config/labwc/autostart; do
     if [ -f "$SCRIPT" ]; then
         chmod 755 "$SCRIPT"
     fi
 done
 
-# 2. Ensure systemd getty override permissions
+if command -v libinput-gestures >/dev/null 2>&1; then
+    usermod -aG input live 2>/dev/null || true
+fi
+
 if [ -d /etc/systemd/system/getty@tty1.service.d ]; then
     chmod 755 /etc/systemd/system/getty@tty1.service.d
     chmod 644 /etc/systemd/system/getty@tty1.service.d/autologin.conf
 fi
 
-# 3. Create seat and hardware groups if missing
 for GRP in _seat seat render video audio input plugdev netdev sudo; do
     if ! getent group "$GRP" >/dev/null 2>&1; then
         groupadd -r "$GRP" 2>/dev/null || true
     fi
 done
 
-# 4. Guarantee pre-creation of 'live' user with default credentials
 if ! id -u live >/dev/null 2>&1; then
     echo "Pre-creating live user account..."
     useradd -m -s /bin/bash -G audio,video,input,render,_seat,seat,plugdev,netdev,sudo live || true
@@ -34,17 +34,14 @@ else
     usermod -aG audio,video,input,render,_seat,seat,plugdev,netdev,sudo live 2>/dev/null || true
 fi
 
-# Set default passwords (live / root)
 echo "live:live" | chpasswd
 echo "root:root" | chpasswd
 
-# Populate /home/live with skeleton config and fix ownership
 if [ -d /home/live ]; then
     cp -rT /etc/skel /home/live 2>/dev/null || true
     chown -R live:live /home/live 2>/dev/null || true
 fi
 
-# 5. Fix sudoers and polkit rules permissions
 if [ -f /etc/sudoers.d/live ]; then
     chmod 0440 /etc/sudoers.d/live
     chown root:root /etc/sudoers.d/live
@@ -55,9 +52,7 @@ if [ -f /etc/polkit-1/rules.d/49-nopasswd_global.rules ]; then
     chown root:root /etc/polkit-1/rules.d/49-nopasswd_global.rules
 fi
 
-# 6. Enable seatd, NetworkManager, thermal, zram and the EFI removable-media
-#    fallback (installed system) if the unit is present
-for SERVICE in seatd NetworkManager thermald zramswap setup-autologin efi-removable-fallback; do
+for SERVICE in seatd NetworkManager thermald zramswap setup-autologin intel-display-setup efi-removable-fallback; do
     if [ -f "/lib/systemd/system/${SERVICE}.service" ] \
         || [ -f "/usr/lib/systemd/system/${SERVICE}.service" ] \
         || [ -f "/etc/systemd/system/${SERVICE}.service" ]; then
@@ -65,9 +60,9 @@ for SERVICE in seatd NetworkManager thermald zramswap setup-autologin efi-remova
     fi
 done
 
-# 7. Hardware audio UCM2 profile verification
 if [ -d /usr/share/alsa/ucm2 ]; then
     echo "ALSA UCM2 hardware profiles detected for Intel SOF."
 fi
 
 echo "=== User and service setup hook completed successfully ==="
+

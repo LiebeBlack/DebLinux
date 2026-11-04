@@ -25,6 +25,16 @@
       <action name="Execute" command="nm-connection-editor" />
     </item>
     <separator />
+    <item label="Display Settings (Arandr)">
+      <action name="Execute" command="arandr" />
+    </item>
+    <item label="Mouse/Touchpad Settings (Xinput)">
+      <action name="Execute" command="xinput" />
+    </item>
+    <separator />
+    <item label="Switch to Text Mode">
+      <action name="Execute" command="switch-to-text" />
+    </item>
     <item label="Reload Labwc Configuration">
       <action name="Reconfigure" />
     </item>

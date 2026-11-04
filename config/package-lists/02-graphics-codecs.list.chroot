@@ -1,12 +1,13 @@
-# Intel Graphics & VA-API Hardware Acceleration (Gemini Lake N4120 UHD 600)
+# Intel Graphics & VA-API - Ultralight
 intel-media-va-driver
 mesa-va-drivers
 mesa-vulkan-drivers
 firmware-intel-graphics
+firmware-misc-nonfree
 libva-wayland2
 libva-drm2
 vainfo
 
-# Multimedia Codecs (Full Formats & Extra Encoders)
+# Multimedia Codecs - Minimal
 ffmpeg
-libavcodec-extra
+

@@ -1,3 +1,23 @@
-# Graphical System Installer for Debian Live on internal eMMC/SSD
+# Graphical System Installer
 calamares
 calamares-settings-debian
+
+# Hardware detection
+dmidecode
+hwinfo
+lshw
+pciutils
+usbutils
+
+# System optimization
+cpuid
+powertop
+tuned
+tuned-utils
+
+# Network tools
+ethtool
+iputils-ping
+net-tools
+traceroute
+

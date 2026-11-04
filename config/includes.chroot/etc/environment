@@ -1,0 +1,26 @@
+# System-wide environment variables for Intel Graphics & Wayland
+# Optimized for Intel architecture (integrated and dedicated GPUs)
+# Prevents Wayland session failures and black screen issues
+
+# Intel Graphics Hardware Acceleration
+LIBVA_DRIVER_NAME=i915
+VDPAU_DRIVER=va_gl
+
+# Mesa Graphics Driver Configuration
+MESA_LOADER_DRIVER_NAME=iris
+
+# Wayland Toolkit Backends
+GDK_BACKEND=wayland,x11
+QT_QPA_PLATFORM=wayland;xcb
+QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+SDL_VIDEODRIVER=wayland
+CLUTTER_BACKEND=wayland
+MOZ_ENABLE_WAYLAND=1
+_JAVA_AWT_WM_NONREPARENTING=1
+
+# Intel-Specific Optimizations
+INTEL_IOMMU=on
+IOMMU=pt
+
+# Session Type
+XDG_SESSION_TYPE=wayland

@@ -1,21 +1,59 @@
-# Debian 13 (Trixie) Ultralight Wayland Live ISO for Lenovo 300e 2nd Gen (81M9)
+# Debian 13 (Trixie) Ultralight Wayland Live ISO - Universal Intel
 
-ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wayland basada en **Labwc**, optimizada específicamente para la laptop **Lenovo 300e 2nd Gen (Type 81M9)** con **UEFI Secure Boot** activado. La cadena de confianza es la de Debian: **shim firmado por Microsoft**, **GRUB firmado por Debian** y **kernel firmado por Debian**. No hay MOK, no hay que enrolar ninguna clave y no se incluye firmware de NVIDIA ni de AMD.
+ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wayland basada en **Labwc**, optimizada para **cualquier equipo Intel** (tanto con GPUs integradas como dedicadas). Compatible con **UEFI Secure Boot**. La cadena de confianza es la de Debian: **shim firmado por Microsoft**, **GRUB firmado por Debian** y **kernel firmado por Debian**. No hay MOK, no hay que enrolar ninguna clave y no se incluye firmware no esencial.
+
+## 🎯 Características Universales Intel
+
+- **Detección automática de hardware Intel**: CPU, GPU (integradas y dedicadas), WiFi, Bluetooth y Audio
+- **Soporte Intel Universal**: Intel HD/UHD/Iris Xe (integradas) + Intel Arc (dedicadas)
+- **Optimización automática**: Scripts de detección y optimización específicos para cada hardware detectado
+- **Wayland nativo**: Toda la stack está optimizada para Wayland con retrocompatibilidad XWayland
+- **Ultraligera y minimalista**: Solo lo esencial para un escritorio moderno y funcional
 
 ---
 
 ## 💻 Especificaciones de Hardware Objetivo
 
-* **Dispositivo:** Lenovo 300e 2nd Gen (Type 81M9)
-* **Procesador:** Intel® Celeron® N4120 (4 núcleos, 1.10 GHz hasta 2.60 GHz, Gemini Lake Refresh)
-* **GPU:** Intel® UHD Graphics 600 (Gen9.5 LP) — **sin GPU NVIDIA**
-* **Aceleración Hardware:** Intel Media Driver (`iHD` / `intel-media-va-driver`), Mesa Iris (`mesa-va-drivers`, `mesa-vulkan-drivers`)
-* **Audio:** Intel Gemini Lake SOF (`firmware-sof-signed`, `firmware-intel-sound`, `alsa-ucm-conf`)
-* **Red Inalámbrica:** Intel Wireless o Realtek (`firmware-iwlwifi`, `firmware-realtek`)
-* **Almacenamiento:** eMMC o SSD M.2 según la variante
-* **Seguridad:** UEFI x86_64 con Secure Boot obligatorio; GPT + partición EFI
+**ISO universal para cualquier equipo Intel**, optimizada para:
 
-> **Sin drivers ni firmware NVIDIA/AMD.** La 81M9 es Intel de principio a fin. Se eliminan `firmware-linux`, `firmware-misc-nonfree` y cualquier blob NVIDIA/AMD que esos metapaquetes pudieran arrastrar.
+### Procesadores Intel Soportados
+- Intel Celeron (todas las generaciones)
+- Intel Pentium (todas las generaciones)
+- Intel Core i3/i5/i7/i9 (todas las generaciones)
+- Intel Atom (todas las generaciones)
+
+### GPUs Intel Soportadas
+- **Integradas**: Intel HD Graphics, Intel UHD Graphics, Intel Iris Xe Graphics
+- **Dedicadas**: Intel Arc Graphics (A380, A750, A770, etc.)
+- **Legacy**: Intel HD Graphics 2000/3000/4000, Intel Iris Graphics 5100/6100
+
+### Aceleración Hardware
+- Intel Media Driver (`iHD` / `intel-media-va-driver`) para GPUs modernas
+- Intel i965 VA-API driver para GPUs legacy
+- Mesa Iris (`mesa-va-drivers`, `mesa-vulkan-drivers`) con detección automática
+- Vulkan support para GPUs Intel modernas
+- OpenCL support para compute workloads
+
+### Audio
+- Intel SOF (`firmware-sof-signed`, `firmware-intel-sound`, `alsa-ucm-conf`)
+- Intel HD Audio (legacy)
+- Soporte para múltiples altavoces y micrófonos
+
+### Redes
+- WiFi: Intel Wireless (iwlwifi), Realtek, Atheros, Broadcom
+- Bluetooth: Intel, Realtek, Broadcom
+- Ethernet: Intel, Realtek, Atheros
+
+### Almacenamiento
+- eMMC, SSD SATA, SSD NVMe/M.2
+- Soporte para particiones GPT obligatorio
+
+### Seguridad
+- UEFI x86_64 con Secure Boot obligatorio
+- GPT + partición EFI obligatorio
+- No soporta BIOS/MBR legacy
+
+> **Detección automática**: El instalador detecta automáticamente el hardware Intel específico y aplica las optimizaciones correspondientes durante la instalación.
 
 ---
 
@@ -25,13 +63,18 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 * **Gestión de Asiento (Seat):** `seatd` / `libseat1` (sin depender de gestores pesados)
 * **Arranque Directo:** Sin Display Manager (DM). TTY1 ejecuta automáticamente `exec /usr/local/bin/launch-labwc`.
 * **Servidor de Audio:** PipeWire + WirePlumber + emulación PulseAudio (`pipewire-pulse`).
-* **Barra de Estado:** Waybar (con indicador de batería de la laptop, brillo, volumen, CPU y RAM).
+* **Barra de Estado:** Waybar (con indicador de batería, brillo, volumen, CPU y RAM).
 * **Terminal & Lanzador:** `foot` (terminal acelerado por Wayland) y `fuzzel` (lanzador de aplicaciones dmenu/rofi-like en Wayland).
 * **Navegador:** Firefox Nightly (`/opt/firefox-nightly`, verificado contra el archivo `.checksums` de Mozilla durante la compilación).
 * **Escritorio:** `mousepad` (editor gráfico), `pcmanfm`, `pavucontrol`, `nm-applet`.
-* **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM para los 4 GB) y `thermald`.
+* **Herramientas de Configuración:**
+  - Pantalla: `arandr`, `autorandr`, `disper`, `colord`, `xrandr`, `ddcutil`
+  - Ratón/Touchpad: `libinput-gestures`, `xbindkeys`, `xinput`, `evtest`
+  - Hardware Intel: `intel-gpu-tools`, `powertop`, `tuned`, `thermald`
+* **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM), `thermald`, `tlp`.
 * **Medios extraíbles:** `exfatprogs` y `ntfs-3g` para montar USB exFAT/NTFS desde `udisks2`.
 * **Firmas UEFI:** `shim-signed` y `grub-efi-amd64-signed`; el kernel de `linux-image-amd64` ya viene firmado por Debian. No se instala `sbsigntool` en la ISO; `mokutil` puede venir como dependencia de `shim-signed`, pero no se usa.
+* **Detección Intel:** Scripts automáticos para detectar y optimizar CPU, GPU, WiFi, Bluetooth y Audio Intel específicos.
 * **Reproducibilidad:** base de `bootstrap` fijada a un snapshot de Debian; squashfs con `zstd`.
 
 ---
@@ -257,3 +300,58 @@ sudo apt-get install -y qemu-system-x86 ovmf socat tesseract-ocr tesseract-ocr-e
 ```
 
 La ISO publicada incluye el kernel firmado por Debian, shim y GRUB firmados, y no requiere ningún paso de MOK.
+
+---
+
+## 🔧 Nuevas Características Universales Intel
+
+### Detección Automática de Hardware Intel
+
+El instalador Calamares ahora incluye scripts de detección automática que identifican:
+
+- **CPU Intel**: Detecta cualquier procesador Intel (Celeron, Pentium, Core i3/i5/i7/i9, Atom)
+- **GPU Intel**: Distingue entre GPUs integradas (HD/UHD/Iris Xe) y dedicadas (Arc)
+- **WiFi Intel**: Detecta tarjetas Intel Wireless y alternativas (Realtek, Atheros, Broadcom)
+- **Bluetooth Intel**: Detecta adaptadores Bluetooth Intel y alternativas
+- **Audio Intel**: Detecta audio Intel SOF, HD Audio y alternativas
+
+### Optimización Automática
+
+Después de la instalación, el sistema aplica optimizaciones específicas según el hardware detectado:
+
+- **Intel GPU**: Configura VA-API, Vulkan, y ajustes específicos de driver (iHD para modernas, i965 para legacy)
+- **Intel CPU**: Habilita Intel IOMMU, C-states, P-states y power management
+- **Intel WiFi**: Configura power saving y módulos iwlwifi optimizados
+- **Intel Audio**: Configura SOF firmware y power saving para audio
+
+### Eliminación Automática del Instalador
+
+Una vez instalado el sistema en el disco, el instalador Calamares elimina automáticamente:
+
+- La opción "Install Debian to Disk (Calamares)" del menú de Labwc
+- El script `launch-calamares`
+- Los archivos de escritorio de Calamares
+
+Esto deja el sistema instalado limpio y listo para uso, sin residuos del modo live.
+
+### Herramientas de Configuración Incluidas
+
+El sistema incluye herramientas completas para configurar:
+
+- **Pantalla**: `arandr`, `autorandr`, `disper`, `colord`, `xrandr`, `ddcutil`, `xcalib`
+- **Ratón/Touchpad**: `libinput-gestures`, `xbindkeys`, `xinput`, `evtest`, `xautomation`, `xdotool`
+- **Hardware Intel**: `intel-gpu-tools`, `powertop`, `tuned`, `thermald`, `cpuid`
+- **Telemetría**: `dmidecode`, `hwinfo`, `lshw`, `pciutils`, `usbutils`, `ethtool`
+
+### Soporte Universal Intel
+
+La ISO ahora soporta:
+- Cualquier procesador Intel (todas las generaciones)
+- GPUs Intel integradas (HD, UHD, Iris Xe)
+- GPUs Intel dedicadas (Arc A380, A750, A770, etc.)
+- GPUs Intel legacy (HD Graphics 2000/3000/4000, Iris 5100/6100)
+- Múltiples opciones de WiFi (Intel, Realtek, Atheros, Broadcom)
+- Múltiples opciones de Bluetooth (Intel, Realtek, Broadcom)
+- Múltiples opciones de audio (Intel SOF, HD Audio, alternativas)
+
+Todo esto se detecta y configura automáticamente durante la instalación.

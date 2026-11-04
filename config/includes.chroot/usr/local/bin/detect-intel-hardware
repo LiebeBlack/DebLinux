@@ -1,0 +1,96 @@
+#!/bin/bash
+# Hardware detection script for Intel systems
+# Detects Intel CPU, GPU, and other hardware to optimize configuration
+# Optimized for minimal errors and graceful fallbacks
+
+set +e
+
+LOG_FILE="/var/log/intel-hardware-detection.log"
+CONFIG_FILE="/etc/intel-hardware.conf"
+
+# Initialize config file
+: > "$CONFIG_FILE"
+echo "INTEL_HARDWARE_DETECTED=true" >> "$CONFIG_FILE"
+
+echo "=== Intel Hardware Detection Started ===" | tee -a "$LOG_FILE"
+echo "Date: $(date)" | tee -a "$LOG_FILE"
+
+# Detect CPU
+echo "--- CPU Detection ---" | tee -a "$LOG_FILE"
+if [ -f /proc/cpuinfo ]; then
+    CPU_VENDOR=$(grep -m1 "vendor_id" /proc/cpuinfo | awk '{print $3}')
+    CPU_MODEL=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | xargs)
+    echo "CPU Vendor: $CPU_VENDOR" | tee -a "$LOG_FILE"
+    echo "CPU Model: $CPU_MODEL" | tee -a "$LOG_FILE"
+
+    if [ "$CPU_VENDOR" = "GenuineIntel" ]; then
+        echo "Intel CPU detected" | tee -a "$LOG_FILE"
+        echo "INTEL_CPU=true" >> "$CONFIG_FILE"
+    fi
+fi
+
+# Detect GPU
+echo "--- GPU Detection ---" | tee -a "$LOG_FILE"
+if command -v lspci >/dev/null 2>&1; then
+    GPU_INFO=$(lspci | grep -i vga)
+    echo "GPU Info: $GPU_INFO" | tee -a "$LOG_FILE"
+
+    if echo "$GPU_INFO" | grep -iq "intel"; then
+        echo "Intel GPU detected" | tee -a "$LOG_FILE"
+        echo "INTEL_GPU=true" >> "$CONFIG_FILE"
+
+        # Detect specific Intel GPU generation
+        if echo "$GPU_INFO" | grep -iq "arc"; then
+            echo "Intel Arc dedicated GPU detected" | tee -a "$LOG_FILE"
+            echo "INTEL_ARC=true" >> "$CONFIG_FILE"
+        elif echo "$GPU_INFO" | grep -iq "iris"; then
+            echo "Intel Iris Xe integrated GPU detected" | tee -a "$LOG_FILE"
+            echo "INTEL_IRIS=true" >> "$CONFIG_FILE"
+        elif echo "$GPU_INFO" | grep -iq "uhd"; then
+            echo "Intel UHD integrated GPU detected" | tee -a "$LOG_FILE"
+            echo "INTEL_UHD=true" >> "$CONFIG_FILE"
+        elif echo "$GPU_INFO" | grep -iq "hd graphics"; then
+            echo "Intel HD Graphics integrated GPU detected" | tee -a "$LOG_FILE"
+            echo "INTEL_HD=true" >> "$CONFIG_FILE"
+        fi
+    fi
+fi
+
+# Detect WiFi
+echo "--- WiFi Detection ---" | tee -a "$LOG_FILE"
+if command -v lspci >/dev/null 2>&1; then
+    WIFI_INFO=$(lspci | grep -i network)
+    echo "WiFi Info: $WIFI_INFO" | tee -a "$LOG_FILE"
+
+    if echo "$WIFI_INFO" | grep -iq "intel"; then
+        echo "Intel WiFi detected" | tee -a "$LOG_FILE"
+        echo "INTEL_WIFI=true" >> "$CONFIG_FILE"
+    fi
+fi
+
+# Detect Bluetooth
+echo "--- Bluetooth Detection ---" | tee -a "$LOG_FILE"
+if command -v lsusb >/dev/null 2>&1; then
+    BT_INFO=$(lsusb | grep -i bluetooth)
+    echo "Bluetooth Info: $BT_INFO" | tee -a "$LOG_FILE"
+
+    if echo "$BT_INFO" | grep -iq "intel"; then
+        echo "Intel Bluetooth detected" | tee -a "$LOG_FILE"
+        echo "INTEL_BT=true" >> "$CONFIG_FILE"
+    fi
+fi
+
+# Detect Audio
+echo "--- Audio Detection ---" | tee -a "$LOG_FILE"
+if command -v lspci >/dev/null 2>&1; then
+    AUDIO_INFO=$(lspci | grep -i audio)
+    echo "Audio Info: $AUDIO_INFO" | tee -a "$LOG_FILE"
+
+    if echo "$AUDIO_INFO" | grep -iq "intel"; then
+        echo "Intel Audio detected" | tee -a "$LOG_FILE"
+        echo "INTEL_AUDIO=true" >> "$CONFIG_FILE"
+    fi
+fi
+
+echo "=== Intel Hardware Detection Completed ===" | tee -a "$LOG_FILE"
+

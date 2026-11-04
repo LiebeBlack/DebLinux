@@ -1,0 +1,48 @@
+# Hardware Firmware & Drivers for Universal Intel Support
+# Complete firmware for Intel graphics, audio, WiFi, and Bluetooth
+# Optimized for both integrated and dedicated Intel hardware
+firmware-sof-signed
+firmware-intel-sound
+alsa-ucm-conf
+firmware-iwlwifi
+firmware-iwlegacy
+firmware-intel-graphics
+firmware-misc-nonfree
+intel-microcode
+firmware-amd-graphics
+firmware-atheros
+firmware-brcm80211
+firmware-i915
+firmware-misc
+firmware-realtek
+firmware-radeon
+
+# Redes, Conectividad y Applet de Bandeja (Universal)
+network-manager
+network-manager-gnome
+wpasupplicant
+bluetooth
+bluez
+bluez-tools
+modemmanager
+usb-modeswitch
+usb-modeswitch-data
+
+# Control de Pantalla y Dispositivos de Entrada (Universal Intel)
+brightnessctl
+libinput-bin
+libinput-tools
+xserver-xorg-input-libinput
+xserver-xorg-input-synaptics
+xinput
+x11-xserver-utils
+xrandr
+arandr
+xcalib
+ddcutil
+x11-apps
+
+# Herramientas de configuración de ratón y touchpad
+libinput-gestures
+xbindkeys
+xf86-input-libinput

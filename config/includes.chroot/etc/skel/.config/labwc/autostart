@@ -2,57 +2,38 @@
 # ~/.config/labwc/autostart
 # Executed by Labwc upon session startup
 
-# 1. Start PipeWire core media server
 if command -v pipewire >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "pipewire" >/dev/null 2>&1; then
-        pipewire &
-    fi
+    pgrep -u "$USER" -x "pipewire" >/dev/null 2>&1 || pipewire &
 fi
 
-# 2. Start PipeWire PulseAudio compatibility daemon
 if command -v pipewire-pulse >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "pipewire-pulse" >/dev/null 2>&1; then
-        pipewire-pulse &
-    fi
+    pgrep -u "$USER" -x "pipewire-pulse" >/dev/null 2>&1 || pipewire-pulse &
 fi
 
-# 3. Start WirePlumber session and policy manager
 if command -v wireplumber >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "wireplumber" >/dev/null 2>&1; then
-        wireplumber &
-    fi
+    pgrep -u "$USER" -x "wireplumber" >/dev/null 2>&1 || wireplumber &
 fi
 
-# 4. Start Mako notification daemon
 if command -v mako >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "mako" >/dev/null 2>&1; then
-        mako &
-    fi
+    pgrep -u "$USER" -x "mako" >/dev/null 2>&1 || mako &
 fi
 
-# 5. Start NetworkManager System Tray Applet
 if command -v nm-applet >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "nm-applet" >/dev/null 2>&1; then
-        nm-applet --indicator &
-    fi
+    pgrep -u "$USER" -x "nm-applet" >/dev/null 2>&1 || nm-applet --indicator &
 fi
 
-# 6. Start Waybar status bar
 if command -v waybar >/dev/null 2>&1; then
-    if ! pgrep -u "$USER" -x "waybar" >/dev/null 2>&1; then
-        waybar &
-    fi
+    pgrep -u "$USER" -x "waybar" >/dev/null 2>&1 || waybar &
 fi
 
-# 7. Set solid background wallpaper
 if command -v swaybg >/dev/null 2>&1; then
     swaybg -c "#1a1b26" &
 fi
 
-# 8. Lock the screen when idle and suspend after a longer period
 if command -v swayidle >/dev/null 2>&1 && command -v swaylock >/dev/null 2>&1; then
-    swayidle -w \
+    pgrep -u "$USER" -x "swayidle" >/dev/null 2>&1 || swayidle -w \
         timeout 300 'swaylock -f -c 1a1b26' \
         timeout 600 'systemctl suspend' \
         before-sleep 'swaylock -f -c 1a1b26' &
 fi
+

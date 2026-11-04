@@ -1,0 +1,13 @@
+#!/bin/bash
+# Switch to text mode from graphical session
+# Can be called from Wayland session to return to TTY
+# Optimized for Intel - minimal and error-free
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "ERROR: Do not run as root. Run as regular user." >&2
+    exit 1
+fi
+
+# Exit the current Wayland session
+echo "Exiting Wayland session..."
+pkill -15 labwc

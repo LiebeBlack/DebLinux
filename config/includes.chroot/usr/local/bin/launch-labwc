@@ -1,57 +1,52 @@
 #!/bin/sh
-# /usr/local/bin/launch-labwc
 # Wrapper script to prepare the environment and execute labwc
+# Optimized for Intel graphics architecture
 
-set -e
+set +e
 
-# Never start a graphical session as root. wlroots/Labwc as root bypasses the
-# seat handover and can leave DRM/input in a broken state (and creates
-# root-owned files in the session). Only the unprivileged live user may run it.
 if [ "$(id -u)" -eq 0 ]; then
     echo "ERROR: refusing to start labwc as root; log in as the live user instead." >&2
     exit 1
 fi
 
-# Ensure XDG_RUNTIME_DIR exists with correct permissions (0700).
-# /run/user/<uid> is normally created by logind; when it is absent and the
-# live user cannot create it under /run, fall back to a private /tmp dir
-# instead of aborting the session (set -e would otherwise drop us to TTY).
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 if ! mkdir -p "${RUNTIME_DIR}" 2>/dev/null || [ ! -w "${RUNTIME_DIR}" ]; then
     RUNTIME_DIR="/tmp/xdg-runtime-$(id -u)"
-    mkdir -p "${RUNTIME_DIR}"
+    mkdir -p "${RUNTIME_DIR}" 2>/dev/null || true
 fi
-chmod 0700 "${RUNTIME_DIR}" 2>/dev/null || true
-export XDG_RUNTIME_DIR="${RUNTIME_DIR}"
+if [ -d "${RUNTIME_DIR}" ]; then
+    chmod 0700 "${RUNTIME_DIR}" 2>/dev/null || true
+    export XDG_RUNTIME_DIR="${RUNTIME_DIR}"
+else
+    echo "WARNING: Could not create XDG_RUNTIME_DIR, continuing without it" >&2
+fi
 
-# Session & Desktop Identification
 export XDG_CURRENT_DESKTOP=labwc
 export XDG_SESSION_DESKTOP=labwc
 export XDG_SESSION_TYPE=wayland
 
-# Toolkit Wayland Backends
-export GDK_BACKEND="wayland,x11,*"
-export QT_QPA_PLATFORM="wayland;xcb"
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export SDL_VIDEODRIVER=wayland
 export CLUTTER_BACKEND=wayland
 export MOZ_ENABLE_WAYLAND=1
 export _JAVA_AWT_WM_NONREPARENTING=1
 
-# Intel Graphics & Hardware Acceleration (Intel Celeron N4120 / UHD 600)
-export LIBVA_DRIVER_NAME=iHD
-export MESA_LOADER_DRIVER_OVERRIDE=iris
+if [ -c /dev/dri/renderD128 ] || [ -c /dev/dri/card0 ]; then
+    export LIBVA_DRIVER_NAME=iHD
+fi
 
-# Enable XWayland support in wlroots/labwc
-export WLR_XWAYLAND=1
+if command -v Xwayland >/dev/null 2>&1; then
+    export WLR_XWAYLAND=1
+else
+    export WLR_XWAYLAND=0
+fi
 
-# Seat management: the system seatd.service runs as root and grants the
-# video group access. seatd-launch needs root or a SUID bit (it is shipped
-# 0755), so invoking it as the live user fails and kills the session.
-# libseat connects to the running seatd daemon directly.
 if ! command -v labwc >/dev/null 2>&1; then
     echo "ERROR: labwc is not installed; staying in text mode." >&2
     exit 1
 fi
 
 exec labwc
+

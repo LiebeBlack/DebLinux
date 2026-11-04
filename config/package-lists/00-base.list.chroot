@@ -1,7 +1,4 @@
-# Base System & Live Infrastructure
-live-boot
-live-config
-live-config-systemd
+# Base System Minimal - Intel Optimized
 systemd-sysv
 udev
 dbus
@@ -11,3 +8,4 @@ sudo
 ca-certificates
 locales
 kbd
+
