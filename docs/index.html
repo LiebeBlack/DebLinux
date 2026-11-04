@@ -391,7 +391,7 @@
         <span class="term-title">actions / build-iso.yml</span>
       </div>
       <div class="term-body">
-        <div class="ln"><span class="dim">$</span> ./scripts/repack-iso.sh live.iso uefi.iso</div>
+        <div class="ln"><span class="dim">$</span> bash scripts/repack-iso.sh live.iso uefi.iso</div>
         <div class="ln"><span class="ok">✓</span> kernel Debian · <span class="dim">firma intacta</span></div>
         <div class="ln"><span class="ok">✓</span> GPT + MBR protector · <span class="vi">0xEE</span></div>
         <div class="ln"><span class="ok">✓</span> El Torito UEFI → <span class="cy">ESP</span></div>
@@ -537,16 +537,16 @@
     </div>
 
     <div class="code rv">
-      <button class="copy" data-copy="cd DebLinux&#10;./scripts/repack-iso.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-uefi.iso&#10;./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso" aria-label="Copiar comandos">Copiar</button>
+      <button class="copy" data-copy="cd DebLinux&#10;bash scripts/repack-iso.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-uefi.iso&#10;bash scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso" aria-label="Copiar comandos">Copiar</button>
       <pre><span class="cm"># reconstrucción UEFI-only (sin sudo: solo lee la ISO)</span>
-./scripts/repack-iso.sh live-image-amd64.hybrid.iso \
+bash scripts/repack-iso.sh live-image-amd64.hybrid.iso \
     debian-live-lenovo300e-uefi.iso
 
 <span class="cm"># layout + cadena Secure Boot de Debian</span>
-./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
+bash scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
 
 <span class="cm"># arranque real con OVMF Secure Boot (USB por defecto)</span>
-./scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso</pre>
+bash scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso</pre>
     </div>
   </section>
 

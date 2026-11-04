@@ -317,15 +317,15 @@ sudo DEBIAN_VERSION="trixie" DEBIAN_SNAPSHOT="live" lb config
 sudo lb build
 
 # 3. Reconstruir la ISO con GPT + MBR protector y ESP (sin sudo: solo lee la ISO)
-./scripts/repack-iso.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-uefi.iso
+bash scripts/repack-iso.sh live-image-amd64.hybrid.iso debian-live-lenovo300e-uefi.iso
 
 # 4. Verificar el layout y la cadena Secure Boot de Debian
-./scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
+bash scripts/verify-iso.sh debian-live-lenovo300e-uefi.iso
 
 # 5. Opcional: probar el arranque con Secure Boot en QEMU (USB por defecto)
 sudo apt-get install -y qemu-system-x86 ovmf socat tesseract-ocr tesseract-ocr-eng netpbm
-./scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso
-# BOOT_MEDIA=cdrom ./scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso
+bash scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso
+# BOOT_MEDIA=cdrom bash scripts/boot-test-iso.sh debian-live-lenovo300e-uefi.iso
 ```
 
 La ISO publicada incluye el kernel firmado por Debian, shim y GRUB firmados, y no requiere ningún paso de MOK.

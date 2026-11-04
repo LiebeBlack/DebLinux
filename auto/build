@@ -1,4 +1,25 @@
 #!/bin/sh
 set -e
 
+# Git on Windows stores this repository with core.fileMode=false, so a fresh
+# clone can bring hooks and helper scripts without the executable bit.
+# live-build needs them executable; normalize before invoking it.
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+chmod +x "$ROOT/auto/clean" "$ROOT/auto/config" "$ROOT/auto/build" 2>/dev/null || true
+chmod +x "$ROOT"/scripts/*.sh 2>/dev/null || true
+
+if [ -d "$ROOT/config/hooks" ]; then
+    find "$ROOT/config/hooks" -type f -exec chmod +x {} + 2>/dev/null || true
+fi
+
+for DIR in "$ROOT/config/includes.chroot/usr/local/bin" "$ROOT/config/includes.chroot/usr/local/sbin"; do
+    [ -d "$DIR" ] && chmod +x "$DIR"/* 2>/dev/null || true
+done
+
+for FILE in "$ROOT/config/includes.chroot/etc/profile.d/99-autostart-labwc.sh" \
+            "$ROOT/config/includes.chroot/etc/skel/.config/labwc/autostart"; do
+    [ -f "$FILE" ] && chmod +x "$FILE" 2>/dev/null || true
+done
+
 lb build noauto "${@}"
