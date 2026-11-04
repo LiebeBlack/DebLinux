@@ -1,2 +1,13 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Linux-side scripts and configuration must stay LF even on Windows checkouts:
+# a CRLF shebang or line makes bash report "$'\r': command not found".
+*.sh              text eol=lf
+*.hook.chroot     text eol=lf
+*.list.chroot     text eol=lf
+auto/*            text eol=lf
+config/includes.chroot/usr/local/bin/*   text eol=lf
+config/includes.chroot/usr/local/sbin/*  text eol=lf
+config/includes.chroot/etc/profile.d/*   text eol=lf
+config/includes.chroot/etc/skel/.config/labwc/autostart text eol=lf

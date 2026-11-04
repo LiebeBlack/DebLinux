@@ -85,6 +85,14 @@ jobs:
           find config/hooks/ -type f -exec chmod +x {} +
           find config/includes.chroot/usr/local/bin/ config/includes.chroot/usr/local/sbin/ -type f -exec chmod +x {} + || true
 
+      # Fail in seconds instead of after a full debootstrap: every name in
+      # config/package-lists and in Calamares' packages.conf must exist in the
+      # archive the image is built from.
+      - name: Validate Package Lists Against Debian
+        run: |
+          chmod +x scripts/check-package-lists.sh
+          ./scripts/check-package-lists.sh
+
       - name: Configure Live-Build for Debian amd64
         env:
           # The package lists use trixie-only t64 names; do not offer bookworm.

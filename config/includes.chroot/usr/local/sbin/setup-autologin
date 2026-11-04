@@ -1,0 +1,37 @@
+#!/bin/sh
+# /usr/local/sbin/setup-autologin
+#
+# Runs inside the target chroot from Calamares (shellprocess@autologin) and
+# points the TTY1 autologin drop-in at the user the installer created, so the
+# installed system keeps booting straight into Labwc.
+#
+# The live image autologs in as "live". That account does not exist on the
+# installed system, so without this step agetty would look for a missing user.
+#
+# Safe by design: if there is no regular user yet, or the drop-in cannot be
+# rewritten, autologin is removed and the system falls back to a normal login
+# prompt instead of breaking the boot.
+
+set -u
+
+DROPIN="/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+
+[ -f "$DROPIN" ] || exit 0
+
+USERNAME="$(awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }' /etc/passwd)"
+if [ -z "$USERNAME" ]; then
+    echo "setup-autologin: no regular user found; disabling TTY1 autologin"
+    rm -f "$DROPIN"
+    exit 0
+fi
+
+sed -i "s/--autologin [^ ]*/--autologin ${USERNAME}/" "$DROPIN" 2>/dev/null || true
+
+if grep -q -- "--autologin ${USERNAME}" "$DROPIN"; then
+    echo "setup-autologin: TTY1 autologin set to ${USERNAME}"
+else
+    echo "setup-autologin: cannot rewrite the drop-in; disabling TTY1 autologin" >&2
+    rm -f "$DROPIN"
+fi
+
+exit 0

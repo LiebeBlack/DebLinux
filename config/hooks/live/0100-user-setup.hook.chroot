@@ -48,7 +48,7 @@ if [ -f /etc/polkit-1/rules.d/49-nopasswd_global.rules ]; then
     chown root:root /etc/polkit-1/rules.d/49-nopasswd_global.rules
 fi
 
-for SERVICE in seatd NetworkManager thermald zramswap setup-autologin intel-display-setup efi-removable-fallback; do
+for SERVICE in seatd NetworkManager thermald zramswap intel-display-setup efi-removable-fallback; do
     if [ -f "/lib/systemd/system/${SERVICE}.service" ] \
         || [ -f "/usr/lib/systemd/system/${SERVICE}.service" ] \
         || [ -f "/etc/systemd/system/${SERVICE}.service" ]; then

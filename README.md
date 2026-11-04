@@ -72,7 +72,7 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
   - Pantalla: `wlr-randr` (Wayland) y `xrandr` (XWayland, vía `x11-xserver-utils`)
   - Ratón/Touchpad: `libinput-tools` y `xinput` (XWayland)
   - Hardware Intel: `powertop`, `tuned`, `thermald`, `cpuid`
-* **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM), `thermald`, `tlp`.
+* **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM), `thermald` y `tuned`.
 * **Medios extraíbles:** `exfatprogs` y `ntfs-3g` para montar USB exFAT/NTFS desde `udisks2`.
 * **Firmas UEFI:** `shim-signed` y `grub-efi-amd64-signed`; el kernel de `linux-image-amd64` ya viene firmado por Debian. No se instala `sbsigntool` en la ISO; `mokutil` puede venir como dependencia de `shim-signed`, pero no se usa.
 * **Detección Intel:** Scripts automáticos para detectar y optimizar CPU, GPU, WiFi, Bluetooth y Audio Intel específicos.
@@ -121,8 +121,7 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   │   ├── systemd/system/
 │   │   │   │   ├── getty@tty1.service.d/
 │   │   │   │   │   └── autologin.conf  # Autologin en TTY1 para el usuario live
-│   │   │   │   ├── efi-removable-fallback.service # Ruta de arranque tipo USB en el sistema instalado
-│   │   │   │   └── setup-autologin.service # Ajusta el autologin al usuario instalado
+│   │   │   │   └── efi-removable-fallback.service # Ruta de arranque tipo USB en el sistema instalado
 │   │   │   ├── profile.d/
 │   │   │   │   └── 99-autostart-labwc.sh # Detección TTY1 y llamada a launch-labwc
 │   │   │   ├── live/config.conf.d/
@@ -150,7 +149,8 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   │   ├── launch-labwc            # Script ejecutable de lanzamiento y entorno
 │   │   │   └── launch-calamares        # Lanzador del instalador con pkexec/sudo
 │   │   ├── usr/local/sbin/
-│   │   │   └── efi-removable-fallback  # Shim + GRUB firmado en EFI/BOOT del sistema instalado
+│   │   │   ├── efi-removable-fallback  # Shim + GRUB firmado en EFI/BOOT del sistema instalado
+│   │   │   └── setup-autologin         # Autologin de TTY1 para el usuario instalado
 │   │   └── usr/share/applications/
 │   │       └── firefox-nightly.desktop # Entrada de escritorio de Firefox Nightly
 │   └── hooks/
@@ -247,6 +247,7 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 
 ## 🧪 CI, Reproducibilidad y Releases
 
+* **Validación de paquetes:** `scripts/check-package-lists.sh` contrasta cada nombre de `config/package-lists` y de `packages.conf` con el archivo real de Debian antes de compilar: un nombre inexistente falla en segundos, no tras el debootstrap. Se ejecuta en el CI y en local.
 * **Snapshot de Debian:** la base de `debootstrap` se fija por defecto al snapshot `20261031T000000Z` (`DEBIAN_SNAPSHOT`). El resto de etapas usa `deb.debian.org` a propósito: live-build copia el mirror de chroot en el `sources.list` final, así que fijarlo dejaría la ISO y el sistema instalado apuntando a un snapshot sin actualizaciones de seguridad. Usa `DEBIAN_SNAPSHOT=live` para compilar contra el archivo actual.
 * **Solo Debian 13 (trixie):** las listas de paquetes usan los nombres `t64` de trixie (`libgtk-3-0t64`, `libasound2t64`, ...); `auto/config` falla con un mensaje claro si se intenta otra suite.
 * **Squashfs zstd:** `--chroot-squashfs-compression-type zstd` acelera la descompresión en el N4120.
@@ -257,7 +258,7 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 * **Verificación:** `scripts/verify-iso.sh` comprueba GPT + MBR protector, ausencia de APM y de entrada BIOS, la entrada El Torito UEFI, shim firmado por Microsoft, GRUB firmado por Debian y todos los kernels firmados por Debian. No usa MOK.
 * **Prueba de arranque:** se ejecuta en cada push a `main`, en tags `v*` y en runs manuales (input `run_boot_test`, activo por defecto). Se arranca la ISO con QEMU + OVMF Secure Boot **como disco USB** (el medio real) y se espera a que el sistema llegue a userspace: el arranque incluye `console=ttyS0,115200 console=tty0`, así que el log serie del invitado debe mostrar el prompt de login (`login:`). Eso demuestra que el firmware aceptó shim, shim aceptó GRUB, GRUB cargó el kernel firmado por Debian y systemd arrancó; si aparece un rechazo de firma, un `Kernel panic` o se agota el timeout (`BOOT_TIMEOUT`, 900 s por defecto), el job falla. Las capturas, el OCR y el log serie quedan como artefacto `secureboot-boot-test`. Con `BOOT_MEDIA=cdrom` se prueba la ruta El Torito.
 * **Instalación GPT:** `config/includes.chroot/etc/calamares/modules/partition.conf` fija `defaultPartitionTableType: gpt` y `requiredPartitionTableType: gpt`. La ISO solo trae GRUB para UEFI, así que el sistema instalado debe ser GPT con partición EFI; Calamares ya elige GPT en sistemas EFI, pero así queda explícito y se rechaza una instalación legacy/MBR. El job `shellprocess@efi-fallback` de `settings.conf` deja el respaldo shim en `EFI/BOOT` antes de reiniciar.
-* **Instancias de Calamares:** `settings.conf` declara `shellprocess@efi-fallback`, `@detect-intel-hardware` y `@remove-installer-menu` en la sección `instances:` con su `.conf` propio. Sin ese bloque Calamares cargaría `shellprocess.conf` y las tres tareas no se ejecutarían.
+* **Instancias de Calamares:** `settings.conf` declara `shellprocess@efi-fallback`, `@detect-intel-hardware`, `@autologin` y `@remove-installer-menu` en la sección `instances:` con su `.conf` propio. Sin ese bloque Calamares cargaría `shellprocess.conf` y ninguna de esas tareas se ejecutaría. `@autologin` apunta el autologin de TTY1 al usuario creado por el instalador y lo desactiva si no encuentra ninguno, para que el sistema instalado no busque al usuario `live`.
 * **Releases:** solo al empujar un tag `v*` se publica un GitHub Release con la ISO, su `.sha256` y, si defines los secretos `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`, una firma detached `.asc`. Un push a `main` no crea releases; para publicar, crea y empuja un tag `v*`. Ya no se adjuntan certificados MOK.
 
 ---
