@@ -1,0 +1,10 @@
+MAXT_OS 1.0 — Debian 13 (trixie) con Wayland, Labwc y Secure Boot.
+
+  Super + Enter    terminal (foot)
+  Super + d        lanzador de aplicaciones (fuzzel)
+  Super + q        cerrar la ventana activa
+  Impr Pant        captura de pantalla (grim)
+  Super + Shift + q  salir de la sesión
+
+  Instalar en disco: menú de escritorio → "Install MAXT_OS to Disk (Calamares)"
+  Volumen y brillo: teclas de función del portátil (PipeWire / brightnessctl)

@@ -1,0 +1,10 @@
+PRETTY_NAME="MAXT_OS 1.0 (base Debian 13 trixie)"
+NAME="MAXT_OS"
+VERSION_ID="13"
+VERSION="1.0 (trixie)"
+VERSION_CODENAME=trixie
+ID=debian
+ID_LIKE=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"

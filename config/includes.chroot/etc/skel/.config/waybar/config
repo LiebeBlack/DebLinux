@@ -29,7 +29,7 @@
   "custom/installer": {
     "format": " Install ",
     "on-click": "launch-calamares",
-    "tooltip-format": "Install Debian to internal disk"
+    "tooltip-format": "Install MAXT_OS to internal disk"
   },
   "wlr/taskbar": {
     "format": "{name}",

@@ -11,6 +11,9 @@ cache/
 *.hybrid.iso
 *.log
 
+# Local boot-test evidence
+boot-test-artifacts/
+
 # Sensitive private keys
 *.key
 *.pem

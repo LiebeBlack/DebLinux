@@ -1,49 +1,60 @@
+/* MAXT_OS — barra de estado (Waybar, GTK CSS) */
+
 * {
     border: none;
     border-radius: 0;
-    font-family: monospace;
+    font-family: "DejaVu Sans Mono", monospace;
     font-size: 12px;
     min-height: 0;
 }
 
 window#waybar {
-    background-color: #1a1b26;
-    color: #c0caf5;
-    border-bottom: 2px solid #24283b;
+    background: rgba(10, 8, 10, 0.94);
+    color: #e5e7eb;
+    border-bottom: 1px solid rgba(255, 59, 59, 0.55);
 }
 
 #custom-launcher {
-    background-color: #7aa2f7;
-    color: #15161e;
+    background: linear-gradient(90deg, #ff3b3b, #ff6b6b);
+    color: #0a0a0d;
     font-weight: bold;
-    padding: 0 10px;
-    margin-right: 4px;
+    padding: 0 14px;
+    margin: 4px 8px 4px 6px;
+    border-radius: 8px;
 }
 
 #custom-installer {
-    background-color: #9ece6a;
-    color: #15161e;
+    background-color: rgba(255, 59, 59, 0.16);
+    color: #ffb3b3;
     font-weight: bold;
-    padding: 0 8px;
-    margin-right: 4px;
-    border-radius: 3px;
+    padding: 0 10px;
+    margin: 4px 8px 4px 0;
+    border: 1px solid rgba(255, 59, 59, 0.55);
+    border-radius: 8px;
+}
+
+#custom-installer:hover {
+    background-color: #ff3b3b;
+    color: #0a0a0d;
 }
 
 #taskbar button {
-    color: #a9b1d6;
-    padding: 0 8px;
+    color: #c9bfc2;
+    padding: 0 10px;
+    margin: 4px 1px;
+    border-radius: 7px;
 }
 
 #taskbar button.active {
-    background-color: #24283b;
-    color: #7aa2f7;
-    border-bottom: 2px solid #7aa2f7;
+    background-color: rgba(255, 59, 59, 0.14);
+    color: #ff6b6b;
+    box-shadow: inset 0 -2px 0 #ff6b6b;
 }
 
 #clock {
-    color: #bb9af7;
+    color: #ffb3b3;
     font-weight: bold;
-    padding: 0 10px;
+    padding: 0 12px;
 }
 
 #network,
@@ -54,46 +65,60 @@ window#waybar {
 #battery,
 #tray,
 #custom-power {
-    padding: 0 8px;
-    margin: 2px 2px;
-    background-color: #24283b;
-    border-radius: 3px;
+    padding: 0 9px;
+    margin: 4px 3px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
 }
 
 #network {
-    color: #9ece6a;
+    color: #4ade80;
 }
 
 #pulseaudio {
-    color: #7dcfff;
+    color: #ff6b6b;
 }
 
 #backlight {
-    color: #e0af68;
+    color: #ffb86b;
 }
 
 #cpu {
-    color: #9ece6a;
+    color: #4ade80;
 }
 
 #memory {
-    color: #2ac3de;
+    color: #ff3b3b;
 }
 
 #battery {
-    color: #7aa2f7;
+    color: #ffb3b3;
 }
 
 #battery.warning {
-    color: #e0af68;
+    color: #ffb86b;
 }
 
 #battery.critical {
-    color: #f7768e;
+    color: #ff3b3b;
+}
+
+#tray {
+    background-color: transparent;
+    border: none;
 }
 
 #custom-power {
-    background-color: #f7768e;
-    color: #15161e;
+    background-color: rgba(255, 59, 59, 0.16);
+    border-color: rgba(255, 59, 59, 0.55);
+    color: #ff3b3b;
     font-weight: bold;
+    padding: 0 12px;
+    margin-right: 6px;
+}
+
+#custom-power:hover {
+    background-color: #ff3b3b;
+    color: #0a0a0d;
 }

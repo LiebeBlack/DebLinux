@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DebLinux — Debian 13 ultraligero con Secure Boot real para Lenovo 300e</title>
-<meta name="description" content="ISO live de Debian 13 (Trixie) con Wayland/Labwc, UEFI Secure Boot con firmas de Debian y verificada en QEMU + OVMF. Construida para el Intel Celeron N4120 de la Lenovo 300e.">
-<meta name="theme-color" content="#05060a">
-<meta property="og:title" content="DebLinux — Debian 13 con Secure Boot real">
-<meta property="og:description" content="ISO ultraligera de Debian 13 para Lenovo 300e: Wayland, shim + GRUB + kernel firmados por Debian. Verificada arrancando en QEMU con OVMF Secure Boot.">
+<title>MAXT_OS 1.0 — Debian 13 ultraligero con Secure Boot real</title>
+<meta name="description" content="MAXT_OS 1.0: ISO live de Debian 13 (Trixie) con Wayland/Labwc, UEFI Secure Boot con firmas de Debian y verificada en QEMU + OVMF. Construida para el Intel Celeron N4120 de la Lenovo 300e.">
+<meta name="theme-color" content="#050507">
+<meta property="og:title" content="MAXT_OS 1.0 — Debian 13 con Secure Boot real">
+<meta property="og:description" content="MAXT_OS 1.0: ISO ultraligera de Debian 13 para Lenovo 300e: Wayland, shim + GRUB + kernel firmados por Debian. Verificada arrancando en QEMU con OVMF Secure Boot.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230b0d14'/%3E%3Cpath d='M9 9h6.5a7 7 0 0 1 0 14H9z' fill='none' stroke='%237c5cff' stroke-width='2.6'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230a0a0d'/%3E%3Cpath d='M9 23V11l7 7 7-7v12' fill='none' stroke='%23ff3b3b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   /* ---------- tokens ---------- */
   :root{
-    --bg:#05060a;
+    --bg:#050507;
     --bg-2:#080a11;
     --panel:rgba(255,255,255,.035);
     --panel-2:rgba(255,255,255,.06);
@@ -22,8 +22,8 @@
     --ink:#f4f5f8;
     --ink-2:#b9bdcb;
     --ink-3:#7f8598;
-    --violet:#7c5cff;
-    --cyan:#2dd4ee;
+    --accent:#ff3b3b;
+    --ember:#ff8a5c;
     --amber:#ffb86b;
     --green:#4ade80;
     --radius:22px;
@@ -55,8 +55,8 @@
     filter:blur(90px);opacity:.5;
     animation:float 26s ease-in-out infinite;
   }
-  .aurora .a{width:52vw;height:52vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 30% 30%,rgba(124,92,255,.55),transparent 62%)}
-  .aurora .b{width:46vw;height:46vw;right:-14vw;top:-6vw;background:radial-gradient(circle at 60% 40%,rgba(45,212,238,.38),transparent 64%);animation-delay:-8s}
+  .aurora .a{width:52vw;height:52vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 30% 30%,rgba(255,59,59,.55),transparent 62%)}
+  .aurora .b{width:46vw;height:46vw;right:-14vw;top:-6vw;background:radial-gradient(circle at 60% 40%,rgba(255,138,92,.38),transparent 64%);animation-delay:-8s}
   .aurora .c{width:40vw;height:40vw;left:24vw;top:52vh;background:radial-gradient(circle at 50% 50%,rgba(255,184,107,.18),transparent 66%);animation-delay:-15s}
   @keyframes float{
     0%,100%{transform:translate3d(0,0,0) scale(1)}
@@ -70,7 +70,7 @@
 
   /* ---------- nav ---------- */
   .progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
-    background:linear-gradient(90deg,var(--violet),var(--cyan));box-shadow:0 0 18px rgba(124,92,255,.8)}
+    background:linear-gradient(90deg,var(--accent),var(--ember));box-shadow:0 0 18px rgba(255,59,59,.8)}
   header.nav{
     position:fixed;top:0;left:0;right:0;z-index:50;
     transition:background .35s ease,border-color .35s ease,backdrop-filter .35s ease;
@@ -104,9 +104,9 @@
     font-family:var(--mono);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;
     color:var(--ink-3);display:flex;align-items:center;gap:10px;margin:0 0 22px;
   }
-  .eyebrow::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,var(--violet),transparent)}
+  .eyebrow::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,var(--accent),transparent)}
   h2{font-size:clamp(30px,4.2vw,50px);line-height:1.06;letter-spacing:-.035em;margin:0 0 18px;font-weight:640}
-  h2 em{font-style:normal;background:linear-gradient(100deg,var(--violet),var(--cyan) 62%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2 em{font-style:normal;background:linear-gradient(100deg,var(--accent),var(--ember) 62%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
   .lede{color:var(--ink-2);max-width:62ch;font-size:17.5px;margin:0}
 
   /* ---------- hero ---------- */
@@ -114,7 +114,7 @@
   .hero h1{
     font-size:clamp(38px,5.6vw,68px);line-height:.99;letter-spacing:-.045em;font-weight:660;margin:0 0 24px;
   }
-  .hero h1 .grad{background:linear-gradient(96deg,#fff 6%,#c9c4ff 38%,var(--violet) 62%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero h1 .grad{background:linear-gradient(96deg,#fff 6%,#ffd6d6 38%,var(--accent) 62%,var(--ember));-webkit-background-clip:text;background-clip:text;color:transparent}
   .hero p.sub{color:var(--ink-2);font-size:18.5px;max-width:52ch;margin:0 0 32px}
   .badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
   .badge{
@@ -140,7 +140,7 @@
   /* terminal card */
   .term{
     border-radius:var(--radius);border:1px solid var(--line);background:linear-gradient(180deg,rgba(18,20,30,.92),rgba(8,9,14,.94));
-    box-shadow:0 50px 90px -40px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.02),0 0 90px -50px rgba(124,92,255,.8);
+    box-shadow:0 50px 90px -40px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.02),0 0 90px -50px rgba(255,59,59,.8);
     overflow:hidden;backdrop-filter:blur(12px);
   }
   .term-bar{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.022)}
@@ -160,9 +160,9 @@
   .ok{color:var(--green)}
   .warn{color:var(--amber)}
   .dim{color:#6f7688}
-  .cy{color:var(--cyan)}
+  .cy{color:var(--ember)}
   .vi{color:#a394ff}
-  .caret{display:inline-block;width:7px;height:14px;background:var(--cyan);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+  .caret{display:inline-block;width:7px;height:14px;background:var(--ember);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
 
   /* stat strip */
@@ -194,13 +194,13 @@
   }
   .card::after{
     content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-    background:radial-gradient(420px 180px at 20% -10%,rgba(124,92,255,.16),transparent 70%);opacity:0;transition:opacity .35s;
+    background:radial-gradient(420px 180px at 20% -10%,rgba(255,59,59,.16),transparent 70%);opacity:0;transition:opacity .35s;
   }
   .card:hover{border-color:var(--line-strong);transform:translateY(-3px)}
   .card:hover::after{opacity:1}
   .card .ico{
     width:38px;height:38px;border-radius:11px;display:grid;place-items:center;margin-bottom:16px;
-    border:1px solid var(--line-strong);background:linear-gradient(160deg,rgba(124,92,255,.22),rgba(45,212,238,.1));
+    border:1px solid var(--line-strong);background:linear-gradient(160deg,rgba(255,59,59,.22),rgba(255,138,92,.1));
   }
   .card .ico svg{width:18px;height:18px;stroke:#cfc9ff;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .card h3{margin:0 0 8px;font-size:17.5px;letter-spacing:-.015em;font-weight:620}
@@ -244,10 +244,10 @@
   .step h4{margin:0 0 6px;font-size:19px;letter-spacing:-.02em;font-weight:620}
   .step p{margin:0;color:var(--ink-2);font-size:15px;max-width:72ch}
   .step code{
-    font-family:var(--mono);font-size:12.6px;color:#cfc9ff;background:rgba(124,92,255,.12);
-    border:1px solid rgba(124,92,255,.22);padding:1.5px 6px;border-radius:6px;
+    font-family:var(--mono);font-size:12.6px;color:#cfc9ff;background:rgba(255,59,59,.12);
+    border:1px solid rgba(255,59,59,.22);padding:1.5px 6px;border-radius:6px;
   }
-  .step:hover .num{color:var(--cyan)}
+  .step:hover .num{color:var(--ember)}
 
   /* ---------- specs ---------- */
   .specs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-top:44px}
@@ -293,7 +293,7 @@
   .hstep .b{
     counter-increment:s;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
     font-family:var(--mono);font-size:13px;color:#0a0a12;font-weight:700;
-    background:linear-gradient(160deg,#fff,#c9c4ff);
+    background:linear-gradient(160deg,#fff,#ffd6d6);
   }
   .hstep .b::before{content:counter(s)}
   .hstep h4{margin:0 0 6px;font-size:16.5px;font-weight:620;letter-spacing:-.01em}
@@ -312,7 +312,7 @@
     content:"+";margin-left:auto;font-family:var(--mono);font-size:19px;color:var(--ink-3);
     transition:transform .25s,color .25s;
   }
-  details[open] summary::after{content:"−";color:var(--cyan)}
+  details[open] summary::after{content:"−";color:var(--ember)}
   details p{margin:0 0 24px;color:var(--ink-2);font-size:15px;max-width:80ch}
 
   /* ---------- footer ---------- */
@@ -343,10 +343,10 @@
     <a class="brand" href="#top">
       <svg viewBox="0 0 32 32" aria-hidden="true">
         <rect width="32" height="32" rx="9" fill="#0e1018" stroke="rgba(255,255,255,.12)"/>
-        <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#7c5cff" stroke-width="2.4" stroke-linejoin="round"/>
-        <circle cx="22.5" cy="11" r="1.9" fill="#2dd4ee"/>
+        <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#ff3b3b" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="22.5" cy="11" r="1.9" fill="#ff8a5c"/>
       </svg>
-      <span><b>DebLinux</b> <span>/ Lenovo 300e</span></span>
+      <span><b>MAXT_OS</b> <span>/ Lenovo 300e</span></span>
     </a>
     <nav class="nav-links" aria-label="Secciones">
       <a href="#vision">Visión</a>
@@ -659,10 +659,10 @@
       <a class="brand" href="#top" style="margin-bottom:14px">
         <svg viewBox="0 0 32 32" aria-hidden="true">
           <rect width="32" height="32" rx="9" fill="#0e1018" stroke="rgba(255,255,255,.12)"/>
-          <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#7c5cff" stroke-width="2.4" stroke-linejoin="round"/>
-          <circle cx="22.5" cy="11" r="1.9" fill="#2dd4ee"/>
+          <path d="M9.5 9.5h6a6.5 6.5 0 0 1 0 13h-6z" fill="none" stroke="#ff3b3b" stroke-width="2.4" stroke-linejoin="round"/>
+          <circle cx="22.5" cy="11" r="1.9" fill="#ff8a5c"/>
         </svg>
-        <span><b>DebLinux</b></span>
+        <span><b>MAXT_OS</b></span>
       </a>
       <p>Debian 13 ultraligero, con Secure Boot de Debian y probado arrancando, para una Lenovo 300e.</p>
     </div>

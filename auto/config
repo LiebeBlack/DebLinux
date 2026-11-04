@@ -61,9 +61,9 @@ lb config noauto \
     --linux-flavours amd64 \
     --linux-packages "linux-image" \
     --memtest none \
-    --iso-application "Debian 13 Labwc Lenovo 300e" \
-    --iso-publisher "Custom SecureBoot Build" \
-    --iso-volume "DEBIAN_LIVE" \
+    --iso-application "MAXT_OS 1.0 (Debian 13 trixie)" \
+    --iso-publisher "MAXT_OS Project" \
+    --iso-volume "MAXT_OS_LIVE" \
     --security true \
     --updates "${UPDATES}" \
     --apt-recommends true \

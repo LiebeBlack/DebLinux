@@ -1,6 +1,23 @@
-# Debian 13 (Trixie) Ultralight Wayland Live ISO - Universal Intel
+# MAXT_OS 1.0 — Debian 13 (Trixie) Ultralight Wayland Live ISO
 
-ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wayland basada en **Labwc**, optimizada para **cualquier equipo Intel** (tanto con GPUs integradas como dedicadas). Compatible con **UEFI Secure Boot**. La cadena de confianza es la de Debian: **shim firmado por Microsoft**, **GRUB firmado por Debian** y **kernel firmado por Debian**. No hay MOK, no hay que enrolar ninguna clave y no se incluye firmware no esencial.
+**MAXT_OS 1.0** es una ISO personalizada ultraligera basada en **Debian GNU/Linux 13 (Trixie)** con la pila Wayland **Labwc**, optimizada para **cualquier equipo Intel** (tanto con GPUs integradas como dedicadas). Compatible con **UEFI Secure Boot**. La cadena de confianza es la de Debian: **shim firmado por Microsoft**, **GRUB firmado por Debian** y **kernel firmado por Debian**. No hay MOK, no hay que enrolar ninguna clave y no se incluye firmware no esencial.
+
+## 🎨 Identidad MAXT_OS
+
+| Elemento | Valor |
+| :--- | :--- |
+| Nombre | MAXT_OS 1.0 |
+| Base | Debian 13 (trixie) |
+| Paleta | rojo `#FF3B3B`, brasa `#FF8A5C`, negro `#0A0A0D` |
+| Logo e icono | `config/includes.chroot/etc/calamares/branding/maxt/` |
+| Fondo de escritorio | `/usr/share/backgrounds/maxt/wallpaper.png` |
+| Barra y ventanas | `waybar/style.css` + `labwc/themerc-override` |
+| Identidad del sistema | `/etc/os-release`, `/etc/issue`, `/etc/motd` |
+| Etiqueta de la ISO | `MAXT_OS_LIVE` |
+
+Los PNG del branding se regeneran con `python3 scripts/make-brand-assets.py` (solo biblioteca estándar, sin Pillow).
+
+---
 
 ## 🎯 Características Universales Intel
 
@@ -70,7 +87,7 @@ ISO personalizada ultraligera de **Debian GNU/Linux 13 (Trixie)** con la pila Wa
 * **Escritorio:** `mousepad` (editor gráfico), `pcmanfm`, `pavucontrol` y `nmtui` (red).
 * **Herramientas de Configuración:**
   - Pantalla: `wlr-randr` (Wayland) y `xrandr` (XWayland, vía `x11-xserver-utils`)
-  - Ratón/Touchpad: `libinput-tools` y `xinput` (XWayland)
+  - Ratón/Touchpad: diagnóstico con `libinput list-devices` y `xinput list` (XWayland)
   - Hardware Intel: `powertop`, `tuned`, `thermald`, `cpuid`
 * **Energía:** `swayidle` + `swaylock` (bloqueo a los 5 min y suspensión a los 10), `zram-tools` (swap comprimida en RAM), `thermald` y `tuned`.
 * **Medios extraíbles:** `exfatprogs` y `ntfs-3g` para montar USB exFAT/NTFS desde `udisks2`.
@@ -115,9 +132,13 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   ├── etc/
 │   │   │   ├── calamares/
 │   │   │   │   ├── settings.conf       # Secuencia, instancias shellprocess y job efi-fallback
+│   │   │   │   ├── branding/maxt/     # Logo, icono y banner de Calamares (rojo/negro)
 │   │   │   │   └── modules/
 │   │   │   │       ├── partition.conf  # Instalación obligatoria en tabla GPT (UEFI)
 │   │   │   │       └── efi-fallback.conf # Shim en EFI/BOOT antes del primer reinicio
+│   │   │   ├── os-release              # Identidad MAXT_OS (base Debian 13)
+│   │   │   ├── issue                   # Banner ASCII de la consola
+│   │   │   ├── motd                    # Bienvenida y atajos
 │   │   │   ├── systemd/system/
 │   │   │   │   ├── getty@tty1.service.d/
 │   │   │   │   │   └── autologin.conf  # Autologin en TTY1 para el usuario live
@@ -137,6 +158,7 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   │           │   ├── autostart   # Script de arranque (pipewire, wireplumber, waybar)
 │   │   │           │   ├── environment # Variables de entorno Wayland / Intel VA-API
 │   │   │           │   ├── rc.xml      # Atajos de teclado y panel táctil Lenovo
+│   │   │           │   ├── themerc-override # Bordes y menús rojos de MAXT_OS
 │   │   │           │   └── menu.xml    # Menú contextual de escritorio (clic derecho)
 │   │   │           ├── waybar/
 │   │   │           │   ├── config      # Configuración de módulos de barra
@@ -151,8 +173,10 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   ├── usr/local/sbin/
 │   │   │   ├── efi-removable-fallback  # Shim + GRUB firmado en EFI/BOOT del sistema instalado
 │   │   │   └── setup-autologin         # Autologin de TTY1 para el usuario instalado
-│   │   └── usr/share/applications/
-│   │       └── firefox-nightly.desktop # Entrada de escritorio de Firefox Nightly
+│   │   ├── usr/share/applications/
+│   │   │   └── firefox-nightly.desktop # Entrada de escritorio de Firefox Nightly
+│   │   └── usr/share/backgrounds/
+│   │       └── maxt/wallpaper.png      # Fondo MAXT_OS 1920x1080
 │   └── hooks/
 │       └── live/
 │           ├── 0100-user-setup.hook.chroot # Permisos, usuario live y servicios
@@ -161,6 +185,8 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 ├── scripts/
 │   ├── repack-iso.sh                   # GPT + MBR protector + ESP; sin firma MOK
 │   ├── verify-iso.sh                   # Verificación de la cadena Debian y del layout UEFI
+│   ├── check-package-lists.sh          # Valida las listas contra el archivo de Debian
+│   ├── make-brand-assets.py            # Genera logo, icono, welcome y wallpaper (stdlib)
 │   └── boot-test-iso.sh                # Arranque de prueba en QEMU/OVMF con Secure Boot
 ├── .gitignore
 └── README.md
@@ -314,9 +340,9 @@ El instalador Calamares ahora incluye scripts de detección automática que iden
 
 - **CPU Intel**: Detecta cualquier procesador Intel (Celeron, Pentium, Core i3/i5/i7/i9, Atom)
 - **GPU Intel**: Distingue entre GPUs integradas (HD/UHD/Iris Xe) y dedicadas (Arc)
-- **WiFi Intel**: Detecta tarjetas Intel Wireless y alternativas (Realtek, Atheros, Broadcom)
-- **Bluetooth Intel**: Detecta adaptadores Bluetooth Intel y alternativas
-- **Audio Intel**: Detecta audio Intel SOF, HD Audio y alternativas
+- **WiFi Intel**: Detecta tarjetas Intel Wireless (firmware `firmware-iwlwifi`)
+- **Bluetooth Intel**: Detecta adaptadores Intel (`ibt-*`, incluidos en `firmware-iwlwifi`)
+- **Audio Intel**: Detecta audio SOF (Gemini Lake) y HD Audio legacy
 
 ### Optimización Automática
 
@@ -331,7 +357,7 @@ Después de la instalación, el sistema aplica optimizaciones específicas segú
 
 Una vez instalado el sistema en el disco, el instalador Calamares elimina automáticamente:
 
-- La opción "Install Debian to Disk (Calamares)" del menú de Labwc
+- La opción "Install MAXT_OS to Disk (Calamares)" del menú de Labwc
 - El script `launch-calamares`
 - Los archivos de escritorio de Calamares
 
@@ -344,7 +370,7 @@ El sistema incluye herramientas completas para configurar:
 - **Pantalla**: `wlr-randr` (Wayland) y `xrandr` (XWayland, vía `x11-xserver-utils`)
 - **Audio**: `pavucontrol` y `wpctl` / `pw-cli` (PipeWire)
 - **Red**: `nmtui` / `nmcli` (NetworkManager)
-- **Ratón/Touchpad**: `libinput-tools` y `xinput` (XWayland)
+- **Ratón/Touchpad**: diagnóstico con `libinput list-devices` y `xinput list` (XWayland)
 - **Hardware Intel**: `powertop`, `tuned`, `thermald`, `cpuid`
 - **Telemetría**: `dmidecode`, `hwinfo`, `lshw`, `pciutils`, `usbutils`, `ethtool`
 

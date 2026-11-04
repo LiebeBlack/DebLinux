@@ -1,0 +1,21 @@
+# MAXT_OS window decorations and menus (labwc themerc overrides).
+window.active.title.bg.color: #12141C
+window.active.title.bg: flat
+window.active.label.text.color: #F4F5F8
+window.active.button.unpressed.image.color: #C9CBD6
+window.active.border.color: #FF3B3B
+
+window.inactive.title.bg.color: #0A0A0D
+window.inactive.label.text.color: #9AA0AF
+window.inactive.button.unpressed.image.color: #6B7180
+window.inactive.border.color: #1B1F2B
+
+menu.items.bg.color: #0A0A0D
+menu.items.text.color: #E5E7EB
+menu.items.active.bg.color: #FF3B3B
+menu.items.active.text.color: #0A0A0D
+menu.border.color: #FF3B3B
+
+border.width: 2
+padding.height: 6
+titlebar.height: 28

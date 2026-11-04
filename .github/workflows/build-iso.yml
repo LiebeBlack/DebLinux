@@ -1,4 +1,4 @@
-name: Build Debian 13 SecureBoot ISO for Lenovo 300e
+name: Build MAXT_OS 1.0 ISO (Debian 13, Secure Boot)
 
 on:
   push:
@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build and Repack UEFI ISO
+    name: Build and Repack MAXT_OS ISO
     runs-on: ubuntu-latest
     # Needed to publish the ISO as a GitHub Release for v* tags.
     permissions:
@@ -199,7 +199,7 @@ jobs:
         if: always() && hashFiles('debian-live-lenovo300e-uefi.iso.sha256') != ''
         uses: actions/upload-artifact@v5
         with:
-          name: debian-13-lenovo-300e-uefi-iso
+          name: maxt-os-1.0-uefi-iso
           path: |
             debian-live-lenovo300e-uefi.iso
             debian-live-lenovo300e-uefi.iso.sha256
@@ -229,8 +229,8 @@ jobs:
           fi
 
           gh release create "${GITHUB_REF_NAME}" "${FILES[@]}" \
-            --title "Debian 13 Lenovo 300e ${GITHUB_REF_NAME}" \
-            --notes "ISO live de Debian 13 para Lenovo 300e (N4120), UEFI Secure Boot con firmas de Debian.
+            --title "MAXT_OS 1.0 ${GITHUB_REF_NAME}" \
+            --notes "MAXT_OS 1.0 — ISO live de Debian 13 (trixie) para Lenovo 300e (N4120), UEFI Secure Boot con firmas de Debian.
 
           Verifica la descarga con:
           \`\`\`

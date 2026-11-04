@@ -6,7 +6,7 @@ set -e
 
 echo "=== Configuring users, permissions and services in chroot ==="
 
-for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /usr/local/sbin/efi-removable-fallback /usr/local/bin/detect-intel-hardware /usr/local/bin/optimize-intel-hardware /usr/local/bin/setup-intel-display /usr/local/bin/switch-to-graphical /usr/local/bin/switch-to-text /etc/profile.d/99-autostart-labwc.sh /etc/skel/.config/labwc/autostart; do
+for SCRIPT in /usr/local/bin/launch-labwc /usr/local/bin/launch-calamares /usr/local/sbin/efi-removable-fallback /usr/local/sbin/setup-autologin /usr/local/bin/detect-intel-hardware /usr/local/bin/optimize-intel-hardware /usr/local/bin/setup-intel-display /usr/local/bin/switch-to-graphical /usr/local/bin/switch-to-text /etc/profile.d/99-autostart-labwc.sh /etc/skel/.config/labwc/autostart; do
     if [ -f "$SCRIPT" ]; then
         chmod 755 "$SCRIPT"
     fi
