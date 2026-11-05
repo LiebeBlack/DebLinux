@@ -1,0 +1,16 @@
+# MAXT_OS — bloqueo de pantalla (swaylock)
+color=0a0a0d
+inside-color=0a0a0d
+ring-color=ff3b3b
+ring-ver-color=ff6b6b
+ring-wrong-color=ff3b3b
+key-hl-color=ff8a5c
+bs-hl-color=ff3b3b
+text-color=f4f0f1
+text-ver-color=f4f0f1
+text-wrong-color=f4f0f1
+line-color=0a0a0d
+separator-color=00000000
+indicator-radius=120
+indicator-thickness=8
+font=monospace

@@ -12,6 +12,9 @@
 | Logo e icono | `config/includes.chroot/etc/calamares/branding/maxt/` |
 | Fondo de escritorio | `/usr/share/backgrounds/maxt/wallpaper.png` |
 | Barra y ventanas | `waybar/style.css` + `labwc/themerc-override` |
+| Aplicaciones | `foot`, `fuzzel`, `mako` y `swaylock` en rojo/negro |
+| Instalador | Calamares con `stylesheet.qss`, `welcome.conf` y `finished.conf` |
+| Arranque | Fondo `grub.png` + colores `light-red` |
 | Identidad del sistema | `/etc/os-release`, `/etc/issue`, `/etc/motd` |
 | Etiqueta de la ISO | `MAXT_OS_LIVE` |
 
@@ -93,7 +96,7 @@ Los PNG del branding se regeneran con `python3 scripts/make-brand-assets.py` (so
 * **Medios extraíbles:** `exfatprogs` y `ntfs-3g` para montar USB exFAT/NTFS desde `udisks2`.
 * **Firmas UEFI:** `shim-signed` y `grub-efi-amd64-signed`; el kernel de `linux-image-amd64` ya viene firmado por Debian. No se instala `sbsigntool` en la ISO; `mokutil` puede venir como dependencia de `shim-signed`, pero no se usa.
 * **Detección Intel:** Scripts automáticos para detectar y optimizar CPU, GPU, WiFi, Bluetooth y Audio Intel específicos.
-* **Reproducibilidad:** base de `bootstrap` fijada a un snapshot de Debian; squashfs con `zstd`.
+* **Reproducibilidad:** squashfs con `zstd`; el bootstrap usa el archivo live por defecto y admite snapshot opcional.
 
 ---
 
@@ -131,24 +134,33 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   ├── includes.chroot/
 │   │   ├── etc/
 │   │   │   ├── calamares/
-│   │   │   │   ├── settings.conf       # Secuencia, instancias shellprocess y job efi-fallback
-│   │   │   │   ├── branding/maxt/     # Logo, icono y banner de Calamares (rojo/negro)
+│   │   │   │   ├── settings.conf       # Secuencia e instancias shellprocess (4 jobs)
+│   │   │   │   ├── branding/maxt/     # Logo, icono, banner y stylesheet.qss
 │   │   │   │   └── modules/
 │   │   │   │       ├── partition.conf  # Instalación obligatoria en tabla GPT (UEFI)
-│   │   │   │       └── efi-fallback.conf # Shim en EFI/BOOT antes del primer reinicio
+│   │   │   │       ├── efi-fallback.conf # Shim en EFI/BOOT antes del primer reinicio
+│   │   │   │       ├── packages.conf   # Paquetes del sistema instalado
+│   │   │   │       ├── welcome.conf    # Bienvenida sin enlaces de Debian
+│   │   │   │       ├── finished.conf   # Reinicio al terminar la instalación
+│   │   │   │       ├── autologin.conf  # Repunta TTY1 al usuario instalado
+│   │   │   │       ├── detect-intel-hardware.conf # Detección Intel en el destino
+│   │   │   │       └── remove-installer-menu.conf # Limpia rastros del instalador
 │   │   │   ├── os-release              # Identidad MAXT_OS (base Debian 13)
 │   │   │   ├── issue                   # Banner ASCII de la consola
 │   │   │   ├── motd                    # Bienvenida y atajos
 │   │   │   ├── systemd/system/
 │   │   │   │   ├── getty@tty1.service.d/
 │   │   │   │   │   └── autologin.conf  # Autologin en TTY1 para el usuario live
-│   │   │   │   └── efi-removable-fallback.service # Ruta de arranque tipo USB en el sistema instalado
+│   │   │   │   ├── efi-removable-fallback.service # Ruta de arranque tipo USB en el sistema instalado
+│   │   │   │   └── intel-display-setup.service # Grupos, DRM y XDG al arrancar
 │   │   │   ├── profile.d/
 │   │   │   │   └── 99-autostart-labwc.sh # Detección TTY1 y llamada a launch-labwc
 │   │   │   ├── live/config.conf.d/
 │   │   │   │   └── live-user.conf      # Grupos de usuario (_seat, audio, video, etc.)
 │   │   │   ├── default/
-│   │   │   │   └── zramswap            # Swap comprimida en RAM (ALGO=zstd, 50 %)
+│   │   │   │   ├── zramswap            # Swap comprimida en RAM (ALGO=zstd, 50 %)
+│   │   │   │   └── grub.d/
+│   │   │   │       └── 99-maxt-colors.cfg # Fondo y colores GRUB del sistema instalado
 │   │   │   ├── polkit-1/rules.d/
 │   │   │   │   └── 49-nopasswd_global.rules # Acciones administrativas sin contraseña
 │   │   │   └── skel/
@@ -164,19 +176,33 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   │   │           │   ├── config      # Configuración de módulos de barra
 │   │   │           │   └── style.css   # Estilo visual de barra superior
 │   │   │           ├── foot/
-│   │   │           │   └── foot.ini    # Configuración de terminal
-│   │   │           └── fuzzel/
-│   │   │               └── fuzzel.ini  # Configuración de menú buscador
+│   │   │           │   └── foot.ini    # Terminal con paleta MAXT_OS
+│   │   │           ├── fuzzel/
+│   │   │           │   └── fuzzel.ini  # Lanzador con prompt MAXT_OS
+│   │   │           ├── mako/
+│   │   │           │   └── config      # Notificaciones rojo/negro
+│   │   │           └── swaylock/
+│   │   │               └── config      # Bloqueo con anillo rojo
 │   │   ├── usr/local/bin/
 │   │   │   ├── launch-labwc            # Script ejecutable de lanzamiento y entorno
-│   │   │   └── launch-calamares        # Lanzador del instalador con pkexec/sudo
+│   │   │   ├── launch-calamares        # Lanzador del instalador con pkexec/sudo
+│   │   │   ├── detect-intel-hardware   # Detección de CPU/GPU/WiFi/BT/audio
+│   │   │   ├── optimize-intel-hardware # Ajustes persistentes del hardware
+│   │   │   ├── setup-intel-display     # Grupos, DRM y XDG_RUNTIME_DIR
+│   │   │   ├── switch-to-graphical     # Arranca Labwc desde TTY
+│   │   │   └── switch-to-text          # Cierra Labwc y vuelve a TTY
 │   │   ├── usr/local/sbin/
 │   │   │   ├── efi-removable-fallback  # Shim + GRUB firmado en EFI/BOOT del sistema instalado
 │   │   │   └── setup-autologin         # Autologin de TTY1 para el usuario instalado
 │   │   ├── usr/share/applications/
 │   │   │   └── firefox-nightly.desktop # Entrada de escritorio de Firefox Nightly
-│   │   └── usr/share/backgrounds/
-│   │       └── maxt/wallpaper.png      # Fondo MAXT_OS 1920x1080
+│   │   ├── usr/share/backgrounds/maxt/
+│   │   │   ├── wallpaper.png           # Fondo MAXT_OS 1920x1080
+│   │   │   └── grub.png                # Fondo del menú GRUB 1280x720
+│   │   └── usr/share/icons/hicolor/
+│   │       ├── 128x128/apps/maxt-os.png
+│   │       ├── 256x256/apps/maxt-os.png
+│   │       └── scalable/apps/maxt-os.svg
 │   └── hooks/
 │       └── live/
 │           ├── 0100-user-setup.hook.chroot # Permisos, usuario live y servicios
@@ -186,7 +212,7 @@ La web del proyecto está en [docs/index.html](docs/index.html): un único fiche
 │   ├── repack-iso.sh                   # GPT + MBR protector + ESP; sin firma MOK
 │   ├── verify-iso.sh                   # Verificación de la cadena Debian y del layout UEFI
 │   ├── check-package-lists.sh          # Valida las listas contra el archivo de Debian
-│   ├── make-brand-assets.py            # Genera logo, icono, welcome y wallpaper (stdlib)
+│   ├── make-brand-assets.py            # Genera logo, iconos, welcome, wallpaper y GRUB
 │   └── boot-test-iso.sh                # Arranque de prueba en QEMU/OVMF con Secure Boot
 ├── .gitignore
 └── README.md
@@ -274,7 +300,7 @@ Nightly no está en el archivo de Debian, así que `config/hooks/live/0200-firef
 ## 🧪 CI, Reproducibilidad y Releases
 
 * **Validación de paquetes:** `scripts/check-package-lists.sh` contrasta cada nombre de `config/package-lists` y de `packages.conf` con el archivo real de Debian antes de compilar: un nombre inexistente falla en segundos, no tras el debootstrap. Se ejecuta en el CI y en local.
-* **Snapshot de Debian:** la base de `debootstrap` se fija por defecto al snapshot `20261031T000000Z` (`DEBIAN_SNAPSHOT`). El resto de etapas usa `deb.debian.org` a propósito: live-build copia el mirror de chroot en el `sources.list` final, así que fijarlo dejaría la ISO y el sistema instalado apuntando a un snapshot sin actualizaciones de seguridad. Usa `DEBIAN_SNAPSHOT=live` para compilar contra el archivo actual.
+* **Origen del bootstrap:** por defecto se usa `deb.debian.org` (`DEBIAN_SNAPSHOT=live`), porque snapshot.debian.org no publica el `Packages` sin comprimir de `contrib` que pide debootstrap y el build aborta antes del chroot. Puedes fijar `DEBIAN_SNAPSHOT=YYYYMMDDTHHMMSSZ` si el snapshot sirve todas las áreas configuradas. El resto de etapas usa siempre el mirror live: live-build copia el mirror de chroot en el `sources.list` final, así que fijarlo dejaría la ISO y el sistema instalado sin actualizaciones de seguridad.
 * **Solo Debian 13 (trixie):** las listas de paquetes usan los nombres `t64` de trixie (`libgtk-3-0t64`, `libasound2t64`, ...); `auto/config` falla con un mensaje claro si se intenta otra suite.
 * **Squashfs zstd:** `--chroot-squashfs-compression-type zstd` acelera la descompresión en el N4120.
 * **Herramientas verificadas:** los `.deb` de live-build, debootstrap y debian-archive-keyring que se instalan como root se comprueban con SHA256.
@@ -311,8 +337,8 @@ curl -fsSLO https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.
 curl -fsSLO https://deb.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
 sudo apt-get install -y ./debian-archive-keyring_2025.1_all.deb ./debootstrap_1.0.141_all.deb ./live-build_20250505+deb13u1_all.deb
 
-# 2. Configurar y compilar live-build (DEBIAN_SNAPSHOT=live usa el mirror actual;
-#    sin variable se usa el snapshot fijado en auto/config)
+# 2. Configurar y compilar live-build (por defecto usa el mirror live;
+#    DEBIAN_SNAPSHOT=YYYYMMDDTHHMMSSZ fija el bootstrap a un snapshot)
 sudo DEBIAN_VERSION="trixie" DEBIAN_SNAPSHOT="live" lb config
 sudo lb build
 

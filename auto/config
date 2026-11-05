@@ -14,15 +14,16 @@ case "${DISTRIBUTION}" in
         ;;
 esac
 
-# Pin the debootstrap base system to an immutable Debian snapshot, so a
-# rebuild does not silently pick up newer essential packages.
-# Set DEBIAN_SNAPSHOT="live" to build against the current archive instead.
+# Bootstrap from the live archive by default. snapshot.debian.org does not
+# publish the uncompressed contrib Packages file that debootstrap requests, so
+# a pinned bootstrap fails before the chroot starts. Set DEBIAN_SNAPSHOT to a
+# timestamp whose snapshot serves every configured area if you need pinning.
 #
-# Only bootstrap is pinned on purpose: live-build copies the *chroot* mirror
-# into the final /etc/apt/sources.list, so pinning chroot would leave the live
-# session and the Calamares-installed system pointing at a stale snapshot
-# without security updates. Chroot and binary therefore use the live mirror.
-SNAPSHOT="${DEBIAN_SNAPSHOT:-20261031T000000Z}"
+# Only bootstrap can be pinned: live-build copies the *chroot* mirror into the
+# final /etc/apt/sources.list, so pinning chroot would leave the live session
+# and the Calamares-installed system on a stale snapshot without security
+# updates. Chroot and binary therefore always use the live mirror.
+SNAPSHOT="${DEBIAN_SNAPSHOT:-live}"
 case "${SNAPSHOT}" in
     ""|live|none)
         PARENT_MIRROR_BOOTSTRAP="http://deb.debian.org/debian/"

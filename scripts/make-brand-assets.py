@@ -231,16 +231,35 @@ def make_wallpaper(path, width=1920, height=1080):
     canvas.save(path)
 
 
+def make_grub(path, width=1280, height=720):
+    canvas = Canvas(width, height)
+    gradient(canvas, BG, BG_2)
+    glow(canvas, width * 0.15, height * 0.20, height * 0.95, CRIMSON, 0.45)
+    glow(canvas, width * 0.86, height * 0.82, height * 0.80, RED, 0.22)
+    grid(canvas, 64, INK, 0.020)
+    for radius in (180, 260, 340, 420):
+        ring(canvas, width * 0.80, height * 0.50, radius, 1.2, RED, 0.06)
+    make_logo_tile(canvas, width * 0.74, height * 0.36, height * 0.30)
+    segment(canvas, width * 0.74, height * 0.72, width * 0.90, height * 0.72, 3, RED, 0.8)
+    vignette(canvas, 0.50)
+    canvas.save(path)
+
+
 def main():
     root = Path(__file__).resolve().parent.parent
     branding = root / 'config/includes.chroot/etc/calamares/branding/maxt'
     backgrounds = root / 'config/includes.chroot/usr/share/backgrounds/maxt'
 
     print('Generating MAXT_OS brand assets')
+    icons = root / 'config/includes.chroot/usr/share/icons/hicolor'
+
     make_logo(512, branding / 'logo.png')
     make_logo(128, branding / 'productIcon.png')
     make_welcome(branding / 'welcome.png')
     make_wallpaper(backgrounds / 'wallpaper.png')
+    make_grub(backgrounds / 'grub.png')
+    make_logo(256, icons / '256x256/apps/maxt-os.png')
+    make_logo(128, icons / '128x128/apps/maxt-os.png')
 
 
 if __name__ == '__main__':

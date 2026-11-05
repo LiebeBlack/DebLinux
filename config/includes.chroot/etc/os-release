@@ -1,5 +1,6 @@
 PRETTY_NAME="MAXT_OS 1.0 (base Debian 13 trixie)"
 NAME="MAXT_OS"
+LOGO=maxt-os
 VERSION_ID="13"
 VERSION="1.0 (trixie)"
 VERSION_CODENAME=trixie

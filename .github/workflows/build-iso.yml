@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       debian_snapshot:
-        description: 'Debian snapshot timestamp (YYYYMMDDTHHMMSSZ) or "live"'
+        description: 'Bootstrap source: "live" (default) or a snapshot timestamp (YYYYMMDDTHHMMSSZ)'
         required: false
-        default: '20261031T000000Z'
+        default: 'live'
       run_boot_test:
         description: 'Boot-test the signed ISO under OVMF Secure Boot (QEMU). Push/tag runs always boot-test; this only opts out of manual runs.'
         required: false
@@ -97,7 +97,7 @@ jobs:
         env:
           # The package lists use trixie-only t64 names; do not offer bookworm.
           DEBIAN_VERSION: trixie
-          DEBIAN_SNAPSHOT: ${{ github.event.inputs.debian_snapshot || '20261031T000000Z' }}
+          DEBIAN_SNAPSHOT: ${{ github.event.inputs.debian_snapshot || 'live' }}
         run: |
           echo "Configuring live-build for Debian suite: ${DEBIAN_VERSION}"
           echo "Build-time packages pinned to: ${DEBIAN_SNAPSHOT}"
@@ -122,6 +122,10 @@ jobs:
           echo "Starting Debian live-build compilation..."
           sudo lb build 2>&1 | tee live-build.log
           echo "Live-build compilation complete."
+
+      - name: Show Live-Build Failure Tail
+        if: failure()
+        run: tail -n 200 live-build.log || true
 
       - name: Upload Live-Build Log
         if: always()

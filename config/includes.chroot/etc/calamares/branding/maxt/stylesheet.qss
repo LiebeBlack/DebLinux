@@ -1,0 +1,63 @@
+/* MAXT_OS — Calamares accent stylesheet (kept small on purpose). */
+
+QPushButton {
+    background-color: #171114;
+    color: #F4F5F8;
+    border: 1px solid #FF3B3B;
+    border-radius: 6px;
+    padding: 6px 16px;
+}
+
+QPushButton:hover {
+    background-color: #FF3B3B;
+    color: #0A0A0D;
+}
+
+QPushButton:pressed {
+    background-color: #C4121F;
+    color: #FFFFFF;
+}
+
+QPushButton:disabled {
+    background-color: #121013;
+    border-color: #3A2A2C;
+    color: #7A6F71;
+}
+
+QLineEdit,
+QComboBox,
+QSpinBox,
+QDoubleSpinBox,
+QTextEdit {
+    background-color: #121013;
+    color: #F4F5F8;
+    border: 1px solid #3A2A2C;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QSpinBox:focus,
+QTextEdit:focus {
+    border-color: #FF3B3B;
+}
+
+QProgressBar {
+    border: 1px solid #3A2A2C;
+    border-radius: 4px;
+    text-align: center;
+    color: #F4F5F8;
+}
+
+QProgressBar::chunk {
+    background-color: #FF3B3B;
+    border-radius: 3px;
+}
+
+QToolTip {
+    background-color: #141013;
+    color: #F4F5F8;
+    border: 1px solid #FF3B3B;
+    padding: 4px;
+}

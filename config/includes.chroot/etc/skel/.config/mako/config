@@ -1,0 +1,11 @@
+# MAXT_OS — notificaciones (mako)
+background-color=#0a0a0d
+text-color=#f4f0f1
+border-color=#ff3b3b
+progress-color=over #ff3b3b
+border-size=2
+border-radius=8
+padding=10
+margin=10
+default-timeout=6000
+font=monospace 11
